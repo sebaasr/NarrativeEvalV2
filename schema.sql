@@ -84,6 +84,7 @@ create table public.students (
   email       text unique,
   advisor_id  uuid references public.profiles(id),
   year_level  text,                    -- 'First Year', 'Second Year', etc.
+  contracts_completed integer,         -- NCF contracts completed (shown alongside year)
   banner_id   text unique,             -- Banner PIDM for import matching
   is_active   boolean not null default true,
   created_at  timestamptz default now()
@@ -126,9 +127,8 @@ create table public.evaluations (
   course_id        uuid not null references public.courses(id),
   faculty_id       uuid not null references public.profiles(id),
   designation      text check (designation in (
-                     'sat_plus','sat','sat_minus','unsat',
-                     'incomplete','pass','fnc'
-                   )),
+                     'strong_sat','sat','marginal_sat','unsat','pass','fail'
+                   )),  -- Strong Sat (SS) / Sat (S) / Marginal Sat (MS) / Unsat (U) / Pass / Fail (F)
   public_narrative text not null default '',
   status           text not null default 'draft'
                      check (status in ('draft','submitted')),
@@ -144,11 +144,13 @@ create index on public.evaluations(course_id);
 create index on public.evaluations(status);
 
 
--- ── 7. EVALUATION PRIVATE NOTES
--- Stored separately so Row Level Security can restrict access to:
---   • the faculty member who wrote the evaluation
---   • registrar and admin roles
--- Advisors NEVER have access to this table.
+-- ── 7. PRIVATE EVALUATION
+-- A second, private narrative stored separately from the public one so Row
+-- Level Security can restrict it to exactly three parties:
+--   • the course faculty (author)
+--   • the student (once the evaluation is submitted)
+--   • the student's advisor
+-- Registrar, PO Office, and Admin deliberately have NO access to this table.
 
 create table public.evaluation_private_notes (
   id             uuid primary key default gen_random_uuid(),
@@ -398,21 +400,26 @@ create policy "faculty update their draft evaluations"
   );
 
 
--- EVALUATION PRIVATE NOTES
--- Advisors and students deliberately have NO policy here — neither can access
--- this table. can_read_all() grants registrar/admin/po_office oversight read.
-create policy "faculty see their own private notes"
+-- EVALUATION PRIVATE EVALUATION (the "Private Evaluation" box)
+-- Shared ONLY with the course faculty (author), the student, and the student's
+-- advisor. Registrar, PO Office, and Admin deliberately have NO access here —
+-- this is a private channel between faculty, student, and advisor.
+create policy "private evaluation visible to faculty, student, advisor"
   on public.evaluation_private_notes for select
   using (
-    public.can_read_all()
-    or exists (
+    exists (
       select 1 from public.evaluations e
       where e.id = evaluation_private_notes.evaluation_id
-        and e.faculty_id = auth.uid()
+        and (
+          e.faculty_id = auth.uid()                                            -- course faculty (author)
+          or (e.student_id = public.my_student_id() and e.status = 'submitted') -- the student (once submitted)
+          or public.is_advisor_of(e.student_id)                                -- the student's advisor
+        )
     )
   );
 
-create policy "faculty manage their own private notes"
+-- Only the course faculty (author) may write/edit the private evaluation.
+create policy "faculty write their own private evaluation"
   on public.evaluation_private_notes for insert
   with check (
     exists (
@@ -422,11 +429,10 @@ create policy "faculty manage their own private notes"
     )
   );
 
-create policy "faculty update their own private notes"
+create policy "faculty update their own private evaluation"
   on public.evaluation_private_notes for update
   using (
-    public.is_registrar_or_admin()
-    or exists (
+    exists (
       select 1 from public.evaluations e
       where e.id = evaluation_private_notes.evaluation_id
         and e.faculty_id = auth.uid()
@@ -474,6 +480,7 @@ create table if not exists public.import_students_staging (
   email      text,
   advisor_email text,
   year_level text,
+  contracts_completed text,
   banner_id  text
 );
 
@@ -491,22 +498,24 @@ declare
   inserted_enrolls   int := 0;
 begin
   -- Upsert students
-  insert into public.students (n_number, full_name, email, advisor_id, year_level, banner_id)
+  insert into public.students (n_number, full_name, email, advisor_id, year_level, contracts_completed, banner_id)
   select
     s.n_number,
     s.full_name,
     s.email,
     p.id as advisor_id,
     s.year_level,
+    nullif(s.contracts_completed, '')::int,
     s.banner_id
   from public.import_students_staging s
   left join public.profiles p on lower(p.email) = lower(s.advisor_email)
   on conflict (n_number) do update set
-    full_name  = excluded.full_name,
-    email      = excluded.email,
-    advisor_id = excluded.advisor_id,
-    year_level = excluded.year_level,
-    banner_id  = excluded.banner_id;
+    full_name           = excluded.full_name,
+    email               = excluded.email,
+    advisor_id          = excluded.advisor_id,
+    year_level          = excluded.year_level,
+    contracts_completed = excluded.contracts_completed,
+    banner_id           = excluded.banner_id;
 
   get diagnostics inserted_students = row_count;
 

@@ -9,7 +9,7 @@
 
 ## What This System Is
 
-A web application that allows NCF faculty to write, save, and submit narrative evaluations for students in their courses. Advisors can view their advisees' completed evaluations. The Registrar can view and export all evaluations.
+A web application that allows NCF faculty to write, save, and submit narrative evaluations for students in their courses. Advisors can view their advisees' evaluations, students can view their own, and the Registrar and Provost's Office (PO Office) can view and export all evaluations.
 
 **Architecture (simple on purpose):**
 - **Frontend:** A single HTML file (`index.html`) served from any web server
@@ -205,6 +205,24 @@ where email = 'msantos@ncf.edu';
 **Option B: Auto-provisioning**  
 The app auto-creates a profile with `role = 'faculty'` on first login. An admin then updates roles as needed via SQL.
 
+> **Roles:** `faculty`, `registrar`, `po_office` (Provost's Office — read-only oversight), `admin`, and `student`. Auto-provisioning only creates `faculty`; create `student` and `po_office` profiles explicitly. A **student** profile must set `role = 'student'` and link to its student record via `student_id`:
+>
+> ```sql
+> -- After the student exists in public.students:
+> insert into public.profiles (id, email, full_name, role, student_id)
+> values (
+>   gen_random_uuid(),
+>   'arivera@ncf.edu',
+>   'Alex Rivera',
+>   'student',
+>   (select id from public.students where n_number = 'N00412356')
+> );
+> -- After their first SSO login, link the auth id (same pattern as faculty):
+> update public.profiles
+> set id = (select id from auth.users where email = 'arivera@ncf.edu')
+> where email = 'arivera@ncf.edu';
+> ```
+
 ---
 
 ## Step 7: Import Course and Student Data from Banner
@@ -218,9 +236,9 @@ Your Banner administrator needs to export two CSV files:
 **File 1: `students.csv`**  
 Banner report or query with columns:
 ```
-n_number, full_name, email, advisor_email, year_level, banner_id
+n_number, full_name, email, advisor_email, year_level, contracts_completed, banner_id
 ```
-Example row: `N00412356, Alex Rivera, arivera@ncf.edu, msantos@ncf.edu, Third Year, 1234567`
+Example row: `N00412356, Alex Rivera, arivera@ncf.edu, msantos@ncf.edu, Third Year, 5, 1234567`
 
 **File 2: `enrollments.csv`**  
 ```
@@ -343,7 +361,7 @@ This system is designed with FERPA compliance as a core requirement:
 |---|---|
 | Access limited to authorized officials | Row Level Security in PostgreSQL enforces role-based access at the database level |
 | Faculty see only their students | RLS policies verify faculty_id matches course ownership |
-| Advisors see only public narratives for their advisees | Private notes are in a separate table with no advisor access policy |
+| Public vs. private evaluation | The public narrative is the official record; a separate **private evaluation** is shared only with the student, their advisor, and the course faculty — RLS denies it to the Registrar, PO Office, and Admin |
 | Registrar has legitimate educational interest access | Registrar role has read access to all evaluations |
 | Access logging | Every view and edit is recorded in the `access_log` table |
 | No unauthorized disclosure | Student data is never exposed via client-side code; all access is validated server-side by RLS |
@@ -381,8 +399,8 @@ Confirm the redirect URI in Google Cloud Console exactly matches the Supabase ca
 **"Row Level Security policy violation" errors:**  
 A user is trying to access data outside their role permissions. This is the security layer working correctly. Check the user's role in the `profiles` table.
 
-**Private notes visible to advisor (should never happen in production):**  
-Verify RLS is enabled on `evaluation_private_notes`. Run: `select tablename, rowsecurity from pg_tables where schemaname = 'public';`
+**Private evaluation visible to the Registrar or PO Office (should never happen):**  
+The private evaluation is restricted to the student, their advisor, and the course faculty. Verify RLS is enabled on `evaluation_private_notes`. Run: `select tablename, rowsecurity from pg_tables where schemaname = 'public';`
 
 ---
 

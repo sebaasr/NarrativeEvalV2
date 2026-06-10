@@ -415,12 +415,12 @@ if (!USE_DEMO) {
 
 const DEMO_INITIAL = {
   profiles: [
-    { id: 'f1', email: 'msantos@ncf.edu',   full_name: 'Dr. Maria Santos',    role: 'faculty',    is_advisor: true,  division: 'Social Sciences' },
-    { id: 'f2', email: 'jchen@ncf.edu',     full_name: 'Dr. James Chen',      role: 'faculty',    is_advisor: true,  division: 'Natural Sciences' },
-    { id: 'f3', email: 'evasquez@ncf.edu',  full_name: 'Dr. Elena Vasquez',   role: 'faculty',    is_advisor: true,  division: 'Humanities' },
-    { id: 'f4', email: 'rkim@ncf.edu',      full_name: 'Prof. Robert Kim',    role: 'faculty',    is_advisor: false, division: 'Natural Sciences' },
+    { id: 'f1', email: 'msantos@ncf.edu',   full_name: 'Maria Santos',        role: 'faculty',    is_advisor: true,  division: 'Social Sciences' },
+    { id: 'f2', email: 'jchen@ncf.edu',     full_name: 'James Chen',          role: 'faculty',    is_advisor: true,  division: 'Natural Sciences' },
+    { id: 'f3', email: 'evasquez@ncf.edu',  full_name: 'Elena Vasquez',       role: 'faculty',    is_advisor: true,  division: 'Humanities' },
+    { id: 'f4', email: 'rkim@ncf.edu',      full_name: 'Robert Kim',          role: 'faculty',    is_advisor: false, division: 'Natural Sciences' },
     { id: 'r1', email: 'registrar@ncf.edu', full_name: 'Sarah Johnson',       role: 'registrar',  is_advisor: false, division: "Registrar's Office" },
-    { id: 'po', email: 'provost@ncf.edu',   full_name: 'Dr. Helen Crawford',  role: 'po_office',  is_advisor: false, division: "Provost's Office" },
+    { id: 'po', email: 'provost@ncf.edu',   full_name: 'Helen Crawford',      role: 'po_office',  is_advisor: false, division: "Provost's Office" },
     { id: 'ad', email: 'admin@ncf.edu',     full_name: 'Admin User',          role: 'admin',      is_advisor: false, division: 'Academic Affairs' },
     // Student logins — role 'student', linked to their record via student_id.
     { id: 'u_s1', email: 'arivera@ncf.edu', full_name: 'Alex Rivera',         role: 'student',    is_advisor: false, division: 'Social Sciences',  student_id: 's1' },
@@ -437,42 +437,42 @@ const DEMO_INITIAL = {
     { id: 'c7', code: 'HUM 150', name: 'Introduction to Literary Studies', semester: 'Fall',  year: 2025, faculty_id: 'f3', division: 'Humanities',      description: 'An introduction to close reading and literary analysis across poetry, fiction, and drama. Students develop critical vocabulary, write three analytical essays, and lead one seminar discussion.' },
   ],
   students: [
-    { id: 's1',  n_number: 'N00412356', full_name: 'Alex Rivera',      advisor_id: 'f1', year_level: 'Third Year',  enrollments: ['c1','c3','c6','c7'] },
-    { id: 's2',  n_number: 'N00418723', full_name: 'Jordan Lee',       advisor_id: 'f2', year_level: 'Second Year', enrollments: ['c1','c2'] },
-    { id: 's3',  n_number: 'N00425891', full_name: 'Samira Patel',     advisor_id: 'f1', year_level: 'Fourth Year', enrollments: ['c1','c3','c5'] },
-    { id: 's4',  n_number: 'N00431044', full_name: 'Marcus Thompson',  advisor_id: 'f3', year_level: 'First Year',  enrollments: ['c2','c4'] },
-    { id: 's5',  n_number: 'N00437612', full_name: 'Emily Nguyen',     advisor_id: 'f2', year_level: 'Third Year',  enrollments: ['c2','c5'] },
-    { id: 's6',  n_number: 'N00442087', full_name: 'Diego Morales',    advisor_id: 'f1', year_level: 'Second Year', enrollments: ['c3','c4'] },
-    { id: 's7',  n_number: 'N00449951', full_name: 'Chloe Banks',      advisor_id: 'f3', year_level: 'Fourth Year', enrollments: ['c1','c5'] },
-    { id: 's8',  n_number: 'N00451234', full_name: 'Kenji Watanabe',   advisor_id: 'f2', year_level: 'Third Year',  enrollments: ['c2','c4'] },
-    { id: 's9',  n_number: 'N00456789', full_name: 'Isabella Ruiz',    advisor_id: 'f1', year_level: 'First Year',  enrollments: ['c1','c2','c4'] },
-    { id: 's10', n_number: 'N00461023', full_name: "Liam O'Brien",     advisor_id: 'f3', year_level: 'Second Year', enrollments: ['c3','c5'] },
-    { id: 's11', n_number: 'N00467890', full_name: 'Ava Washington',   advisor_id: 'f2', year_level: 'Fourth Year', enrollments: ['c1','c3'] },
-    { id: 's12', n_number: 'N00473456', full_name: 'Noah Fischer',     advisor_id: 'f1', year_level: 'Third Year',  enrollments: ['c2','c5'] },
-    { id: 's13', n_number: 'N00478912', full_name: 'Mia Johansson',    advisor_id: 'f3', year_level: 'Second Year', enrollments: ['c4','c5'] },
-    { id: 's14', n_number: 'N00484567', full_name: 'Ethan Park',       advisor_id: 'f2', year_level: 'First Year',  enrollments: ['c1','c2'] },
-    { id: 's15', n_number: 'N00490123', full_name: 'Sofia Martinez',   advisor_id: 'f1', year_level: 'Fourth Year', enrollments: ['c3','c5'] },
-    { id: 's16', n_number: 'N00495678', full_name: 'Lucas Brown',      advisor_id: 'f3', year_level: 'Third Year',  enrollments: ['c2','c4'] },
+    { id: 's1',  n_number: 'N00412356', full_name: 'Alex Rivera',      advisor_id: 'f1', year_level: 'Third Year',  contracts_completed: 5, enrollments: ['c1','c3','c6','c7'] },
+    { id: 's2',  n_number: 'N00418723', full_name: 'Jordan Lee',       advisor_id: 'f2', year_level: 'Second Year', contracts_completed: 3, enrollments: ['c1','c2'] },
+    { id: 's3',  n_number: 'N00425891', full_name: 'Samira Patel',     advisor_id: 'f1', year_level: 'Fourth Year', contracts_completed: 7, enrollments: ['c1','c3','c5'] },
+    { id: 's4',  n_number: 'N00431044', full_name: 'Marcus Thompson',  advisor_id: 'f3', year_level: 'First Year',  contracts_completed: 1, enrollments: ['c2','c4'] },
+    { id: 's5',  n_number: 'N00437612', full_name: 'Emily Nguyen',     advisor_id: 'f2', year_level: 'Third Year',  contracts_completed: 5, enrollments: ['c2','c5'] },
+    { id: 's6',  n_number: 'N00442087', full_name: 'Diego Morales',    advisor_id: 'f1', year_level: 'Second Year', contracts_completed: 3, enrollments: ['c3','c4'] },
+    { id: 's7',  n_number: 'N00449951', full_name: 'Chloe Banks',      advisor_id: 'f3', year_level: 'Fourth Year', contracts_completed: 7, enrollments: ['c1','c5'] },
+    { id: 's8',  n_number: 'N00451234', full_name: 'Kenji Watanabe',   advisor_id: 'f2', year_level: 'Third Year',  contracts_completed: 6, enrollments: ['c2','c4'] },
+    { id: 's9',  n_number: 'N00456789', full_name: 'Isabella Ruiz',    advisor_id: 'f1', year_level: 'First Year',  contracts_completed: 2, enrollments: ['c1','c2','c4'] },
+    { id: 's10', n_number: 'N00461023', full_name: "Liam O'Brien",     advisor_id: 'f3', year_level: 'Second Year', contracts_completed: 4, enrollments: ['c3','c5'] },
+    { id: 's11', n_number: 'N00467890', full_name: 'Ava Washington',   advisor_id: 'f2', year_level: 'Fourth Year', contracts_completed: 8, enrollments: ['c1','c3'] },
+    { id: 's12', n_number: 'N00473456', full_name: 'Noah Fischer',     advisor_id: 'f1', year_level: 'Third Year',  contracts_completed: 5, enrollments: ['c2','c5'] },
+    { id: 's13', n_number: 'N00478912', full_name: 'Mia Johansson',    advisor_id: 'f3', year_level: 'Second Year', contracts_completed: 4, enrollments: ['c4','c5'] },
+    { id: 's14', n_number: 'N00484567', full_name: 'Ethan Park',       advisor_id: 'f2', year_level: 'First Year',  contracts_completed: 2, enrollments: ['c1','c2'] },
+    { id: 's15', n_number: 'N00490123', full_name: 'Sofia Martinez',   advisor_id: 'f1', year_level: 'Fourth Year', contracts_completed: 8, enrollments: ['c3','c5'] },
+    { id: 's16', n_number: 'N00495678', full_name: 'Lucas Brown',      advisor_id: 'f3', year_level: 'Third Year',  contracts_completed: 6, enrollments: ['c2','c4'] },
   ],
   evaluations: [
-    { id: 'e1', student_id: 's1', course_id: 'c1', faculty_id: 'f1', designation: 'sat_plus',
+    { id: 'e1', student_id: 's1', course_id: 'c1', faculty_id: 'f1', designation: 'strong_sat',
       public_narrative: '<p>Alex demonstrated exceptional engagement with the course material throughout the semester. Their weekly reading responses were consistently thoughtful and well-argued, often drawing connections between theorists that other students missed. The final research paper on <strong>the application of Bourdieu\'s concept of cultural capital to educational inequality in Florida</strong> was one of the strongest I have received in this course.</p><p>Alex was an active and generous participant in seminar discussions, frequently helping to clarify complex concepts for peers while remaining open to alternative interpretations.</p>',
       status: 'submitted', submitted_at: '2026-04-01T10:30:00', updated_at: '2026-04-01T10:30:00' },
     { id: 'e2', student_id: 's2', course_id: 'c1', faculty_id: 'f1', designation: 'sat',
       public_narrative: '<p>Jordan performed well in Social Theory and Practice. Their reading responses showed a solid understanding of the key theoretical frameworks, and their analytical essays demonstrated an ability to apply these frameworks to contemporary issues.</p><p>The final research paper was well-organized and clearly written, though it could have engaged more deeply with counter-arguments to the thesis. Jordan contributed regularly to class discussion.</p>',
       status: 'submitted', submitted_at: '2026-04-01T11:00:00', updated_at: '2026-04-01T11:00:00' },
-    { id: 'e3', student_id: 's4', course_id: 'c2', faculty_id: 'f2', designation: 'sat_minus',
+    { id: 'e3', student_id: 's4', course_id: 'c2', faculty_id: 'f2', designation: 'marginal_sat',
       public_narrative: '<p>Marcus completed the basic requirements of the course but struggled with some of the more complex ecological concepts, particularly population modeling and community dynamics. Lab reports were generally adequate but sometimes lacked sufficient analysis of field data.</p><p>Marcus showed improvement in the second half of the semester, and the conservation proposal demonstrated genuine interest in marine ecology. I encourage Marcus to continue developing quantitative skills.</p>',
       status: 'draft', submitted_at: null, updated_at: '2026-04-02T14:00:00' },
     // ── Fall 2025 submitted evaluations for Alex Rivera (s1) — populate the student view's prior semester ──
-    { id: 'e4', student_id: 's1', course_id: 'c6', faculty_id: 'f1', designation: 'sat_plus',
+    { id: 'e4', student_id: 's1', course_id: 'c6', faculty_id: 'f1', designation: 'strong_sat',
       public_narrative: '<p>Alex entered Foundations of Sociology already curious and left it visibly more rigorous. Their short papers moved from summary toward genuine analysis, and the final reflective essay — connecting Goffman\'s dramaturgy to their own experience in campus life — was a standout. Alex reads carefully and is unafraid to revise a first impression when the evidence pushes back.</p><p>A reliable, generous contributor in discussion. I would happily teach Alex again in an upper-division seminar.</p>',
       status: 'submitted', submitted_at: '2025-12-15T09:20:00', updated_at: '2025-12-15T09:20:00' },
     { id: 'e5', student_id: 's1', course_id: 'c7', faculty_id: 'f3', designation: 'sat',
       public_narrative: '<p>Alex made solid progress in Introduction to Literary Studies. Close-reading skills developed steadily over the term; the second analytical essay, on imagery in Elizabeth Bishop, was clearly argued and textually grounded. Seminar leadership was well prepared.</p><p>To continue growing, Alex should push past sound interpretation toward a sharper, more contestable thesis — taking a position that a thoughtful reader might resist. The ability is plainly there.</p>',
       status: 'submitted', submitted_at: '2025-12-16T13:45:00', updated_at: '2025-12-16T13:45:00' },
   ],
-  // Private notes stored separately — faculty + registrar/admin only
+  // Private evaluation stored separately — shared with faculty (author), the student, and their advisor
   privateNotes: {
     'e1': '<p>Alex is a strong candidate for graduate school in sociology. I would recommend they consider programs with strengths in social stratification. They should discuss this with their advisor.</p>',
     'e2': '<p>Jordan might benefit from a writing workshop to strengthen argumentative writing. Overall a solid student who is developing well.</p>',
@@ -484,13 +484,13 @@ const DEMO_INITIAL = {
 };
 
 function demoLoadData() {
-  const saved = localStorage.getItem('ncf_eval_v3');
+  const saved = localStorage.getItem('ncf_eval_v4');
   if (saved) return JSON.parse(saved);
   const fresh = JSON.parse(JSON.stringify(DEMO_INITIAL));
-  localStorage.setItem('ncf_eval_v3', JSON.stringify(fresh));
+  localStorage.setItem('ncf_eval_v4', JSON.stringify(fresh));
   return fresh;
 }
-function demoSaveData(d) { localStorage.setItem('ncf_eval_v3', JSON.stringify(d)); }
+function demoSaveData(d) { localStorage.setItem('ncf_eval_v4', JSON.stringify(d)); }
 
 let demoData = demoLoadData();
 
@@ -694,7 +694,7 @@ const Data = {
   // ── Student self-service ─────────────────────────────────────────
   // Returns every course the student is/was enrolled in (all semesters),
   // each paired with its faculty and — only if SUBMITTED — its evaluation.
-  // Private notes are never fetched here. RLS enforces the same on the server.
+  // The private evaluation is fetched separately by the caller via getPrivateNote.
   async getStudentCoursesWithEvals(studentId) {
     if (USE_DEMO) {
       const student = demoData.students.find(s => s.id === studentId);
@@ -766,7 +766,7 @@ const Auth = {
   async init() {
     if (USE_DEMO) {
       // Demo: check localStorage for saved session
-      const savedId = localStorage.getItem('ncf_demo_user');
+      const savedId = localStorage.getItem('ncf_demo_user_v2');
       if (savedId) {
         const profile = demoData.profiles.find(p => p.id === savedId);
         if (profile) { appState.currentUser = profile; showApp(); return; }
@@ -827,14 +827,14 @@ const Auth = {
     const sel = document.getElementById('demoUserSelect');
     const profile = demoData.profiles.find(p => p.id === sel.value);
     if (!profile) return;
-    localStorage.setItem('ncf_demo_user', profile.id);
+    localStorage.setItem('ncf_demo_user_v2', profile.id);
     appState.currentUser = profile;
     showApp();
   },
 
   async signOut() {
     if (USE_DEMO) {
-      localStorage.removeItem('ncf_demo_user');
+      localStorage.removeItem('ncf_demo_user_v2');
       appState.currentUser = null;
       showLogin();
       return;
@@ -1236,11 +1236,13 @@ async function renderEvaluationForm(mc) {
     const publicNarr      = ev?.public_narrative || '';
     let   privateNarr     = '';
 
-    // Only faculty who wrote it, or registrar/admin/po_office, see private notes
-    const role = appState.currentUser?.role;
-    const canSeePrivate = role === 'registrar' || role === 'admin' || role === 'po_office'
-      || (ev && ev.faculty_id === appState.currentUser?.id)
-      || (!ev && (course.faculty_id === appState.currentUser?.id || !USE_DEMO));
+    // The Private Evaluation is authored by the course faculty and shared only
+    // with the student and their advisor (each sees it in their own view). In
+    // THIS form, only the authoring faculty can see/edit it — Registrar, PO
+    // Office, and Admin have no access to it.
+    const canSeePrivate = (ev && ev.faculty_id === appState.currentUser?.id)
+      || (!ev && course.faculty_id === appState.currentUser?.id)
+      || (!ev && !USE_DEMO && appState.currentUser?.role === 'faculty');
 
     if (canSeePrivate && ev?.id) {
       privateNarr = await Data.getPrivateNote(ev.id);
@@ -1287,17 +1289,17 @@ async function renderEvaluationForm(mc) {
             <div class="eval-field"><label>Semester / Year</label><div class="field-value">${course.semester} ${course.year}</div></div>
             <div class="eval-field"><label>Faculty Advisor</label><div class="field-value">${advisorName}</div></div>
             <div class="eval-field"><label>Student Year</label><div class="field-value">${student.year_level}</div></div>
+            <div class="eval-field"><label>Contracts Completed</label><div class="field-value">${student.contracts_completed ?? '—'}</div></div>
             <div class="eval-field">
               <label>Course Designation</label>
               <select class="designation-select" id="designationSelect" ${locked ? 'disabled' : ''}>
                 <option value="">— Select Designation —</option>
-                <option value="sat_plus"    ${designation==='sat_plus'    ? 'selected':''}>Strong Satisfactory (Sat+ / A)</option>
-                <option value="sat"         ${designation==='sat'         ? 'selected':''}>Satisfactory (Sat / B)</option>
-                <option value="sat_minus"   ${designation==='sat_minus'   ? 'selected':''}>Marginal Satisfactory (Sat- / C)</option>
-                <option value="unsat"       ${designation==='unsat'       ? 'selected':''}>Unsatisfactory (Unsat / F)</option>
-                <option value="incomplete"  ${designation==='incomplete'  ? 'selected':''}>Incomplete (I)</option>
-                <option value="pass"        ${designation==='pass'        ? 'selected':''}>Pass (P)</option>
-                <option value="fnc"         ${designation==='fnc'         ? 'selected':''}>Fail / No Credit (FNC)</option>
+                <option value="strong_sat"   ${designation==='strong_sat'   ? 'selected':''}>Strong Sat (SS)</option>
+                <option value="sat"          ${designation==='sat'          ? 'selected':''}>Sat (S)</option>
+                <option value="marginal_sat" ${designation==='marginal_sat' ? 'selected':''}>Marginal Sat (MS)</option>
+                <option value="unsat"        ${designation==='unsat'        ? 'selected':''}>Unsat (U)</option>
+                <option value="pass"         ${designation==='pass'         ? 'selected':''}>Pass</option>
+                <option value="fail"         ${designation==='fail'         ? 'selected':''}>Fail (F)</option>
               </select>
             </div>
           </div>
@@ -1311,8 +1313,8 @@ async function renderEvaluationForm(mc) {
           </div>
 
           ${canSeePrivate ? `
-          <div class="rte-label private-label">Private / Internal Notes</div>
-          <div class="private-notice">Faculty-only. Not shared with students, not part of the public record. Visible to Registrar, PO Office, and Admin.</div>
+          <div class="rte-label private-label">Private Evaluation</div>
+          <div class="private-notice">Shared only with the student and their advisor — not part of the public record, and not visible to the Registrar or PO Office.</div>
           <div class="rte-wrapper${locked ? ' readonly' : ''}" id="privateEditorWrapper">
             <div id="privateEditorContainer"></div>
           </div>` : ''}
@@ -1330,10 +1332,11 @@ async function renderEvaluationForm(mc) {
 
     // Initialize Quill editors after DOM is ready
     setTimeout(() => {
+      // Font-size control intentionally omitted — fixed sizing keeps the
+      // narrative text uniform for long-term record preservation.
       const toolbarOptions = [
         ['bold', 'italic', 'underline'],
         [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-        [{ 'size': ['small', false, 'large', 'huge'] }],
         ['clean']
       ];
 
@@ -1349,7 +1352,7 @@ async function renderEvaluationForm(mc) {
         _privateQuill = new Quill('#privateEditorContainer', {
           theme: 'snow',
           readOnly: locked,
-          placeholder: 'Internal notes (not shared with student)…',
+          placeholder: 'Private evaluation (shared with the student and their advisor)…',
           modules: { toolbar: locked ? false : toolbarOptions }
         });
         _privateQuill.root.innerHTML = privateNarr;
@@ -1431,7 +1434,7 @@ function printEvaluation() {
 
 // ═══════════════════════════════════════════════════════════════════
 // SECTION 12: ADVISOR VIEW
-// Advisors see only public narratives — private notes are never fetched.
+// Advisors see the public narrative AND the private evaluation (shared with them).
 // ═══════════════════════════════════════════════════════════════════
 
 async function renderAdvisorStudentView(mc) {
@@ -1452,6 +1455,8 @@ async function renderAdvisorStudentView(mc) {
 
       let evalContent = '';
       if (ev && ev.status === 'submitted') {
+        // Advisors see the Private Evaluation too (shared faculty/student/advisor).
+        const privateNarr = await Data.getPrivateNote(ev.id);
         evalContent = `
           <div style="margin-top:12px;">
             <div style="margin-bottom:8px;">
@@ -1463,6 +1468,12 @@ async function renderAdvisorStudentView(mc) {
             <div class="rte-wrapper readonly" style="margin-top:6px;">
               <div style="padding:14px;font-size:14px;line-height:1.6;">${ev.public_narrative}</div>
             </div>
+            ${privateNarr ? `
+            <div class="rte-label private-label" style="margin-top:12px;">Private Evaluation</div>
+            <div class="private-notice">Shared with you (advisor), the student, and the course faculty. Not part of the public record.</div>
+            <div class="rte-wrapper readonly" style="margin-top:6px;">
+              <div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div>
+            </div>` : ''}
           </div>`;
       } else if (ev && ev.status === 'draft') {
         evalContent = '<div style="padding:12px;color:#856404;font-style:italic;background:#fff8e1;border-radius:6px;margin-top:8px;">Evaluation in progress — not yet submitted.</div>';
@@ -1489,7 +1500,7 @@ async function renderAdvisorStudentView(mc) {
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
           <h3 style="margin-bottom:4px;">${student.full_name}</h3>
-          <div style="color:#666;font-size:14px;">${student.n_number} · ${student.year_level}</div>
+          <div style="color:#666;font-size:14px;">${student.n_number} · ${student.year_level} · ${student.contracts_completed ?? '—'} contracts completed</div>
           <div style="color:#888;font-size:13px;margin-top:2px;">Advisor: ${advisorName}</div>
         </div>
       </div>
@@ -1503,8 +1514,9 @@ async function renderAdvisorStudentView(mc) {
 // ═══════════════════════════════════════════════════════════════════
 // SECTION 12B: STUDENT VIEW
 // Students see ONLY their own submitted evaluations (designation + public
-// narrative), grouped by semester (current and previous). Private/internal
-// notes are never fetched — the data layer and RLS both enforce this.
+// narrative + private evaluation), grouped by semester (current and previous).
+// Students see the Private Evaluation that faculty share with them and their
+// advisor — but never anything from the Registrar/PO-only side. RLS enforces this.
 // ═══════════════════════════════════════════════════════════════════
 
 async function renderStudentView(mc) {
@@ -1513,6 +1525,8 @@ async function renderStudentView(mc) {
   try {
     const items = await Data.getStudentCoursesWithEvals(u.student_id);
     Data.logAccess('view_student_record', 'student', u.student_id, u.student_id);
+    // Fetch the Private Evaluation for each submitted eval (shared with the student).
+    await Promise.all(items.map(async it => { if (it.ev) it.privateNarr = await Data.getPrivateNote(it.ev.id); }));
 
     if (items.length === 0) {
       mc.innerHTML = '<div class="card"><div class="card-body" style="color:#888;">No course enrollments found for your account.</div></div>';
@@ -1531,13 +1545,13 @@ async function renderStudentView(mc) {
         <div class="card-body">
           <h3 style="margin-bottom:4px;">My Narrative Evaluations</h3>
           <div style="color:#666;font-size:14px;">${u.full_name}</div>
-          <div style="color:#888;font-size:13px;margin-top:2px;">Only submitted evaluations are shown. Faculty internal notes are never included.</div>
+          <div style="color:#888;font-size:13px;margin-top:2px;">Only submitted evaluations are shown.</div>
         </div>
       </div>`;
 
     for (const key of Object.keys(groups).sort(semesterSortDesc)) {
       html += `<div class="rte-label" style="margin:18px 0 8px;font-size:15px;">${key}</div>`;
-      for (const { course, faculty, ev } of groups[key]) {
+      for (const { course, faculty, ev, privateNarr } of groups[key]) {
         const body = ev ? `
             <div style="margin-bottom:8px;">
               <strong>Designation:</strong> ${getDesignationBadge(ev.designation)}
@@ -1547,7 +1561,13 @@ async function renderStudentView(mc) {
             <div class="rte-label">Narrative Evaluation</div>
             <div class="rte-wrapper readonly" style="margin-top:6px;">
               <div style="padding:14px;font-size:14px;line-height:1.6;">${ev.public_narrative}</div>
-            </div>`
+            </div>
+            ${privateNarr ? `
+            <div class="rte-label private-label" style="margin-top:12px;">Private Evaluation</div>
+            <div class="private-notice">Shared with you, your advisor, and the course faculty. Not part of the public record.</div>
+            <div class="rte-wrapper readonly" style="margin-top:6px;">
+              <div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div>
+            </div>` : ''}`
           : '<div style="padding:12px;color:#888;font-style:italic;">No evaluation available yet for this course.</div>';
         html += `
           <div class="card">
@@ -1868,13 +1888,12 @@ function semesterSortDesc(a, b) {
 
 function getDesignationBadge(d) {
   const map = {
-    sat_plus:   ['Sat+',  'desig-satplus'],
-    sat:        ['Sat',   'desig-sat'],
-    sat_minus:  ['Sat−',  'desig-satminus'],
-    unsat:      ['Unsat', 'desig-unsat'],
-    incomplete: ['INC',   'desig-inc'],
-    pass:       ['P',     'desig-pass'],
-    fnc:        ['FNC',   'desig-fnc'],
+    strong_sat:   ['SS',   'desig-satplus'],
+    sat:          ['S',    'desig-sat'],
+    marginal_sat: ['MS',   'desig-satminus'],
+    unsat:        ['U',    'desig-unsat'],
+    pass:         ['Pass', 'desig-pass'],
+    fail:         ['F',    'desig-fnc'],
   };
   const [label, cls] = map[d] || ['—', ''];
   return cls ? `<span class="desig-badge ${cls}">${label}</span>` : label;
@@ -1891,8 +1910,8 @@ function showToast(msg, color) {
 
 // Dev utility — resets demo data to initial state
 function resetDemoData() {
-  localStorage.removeItem('ncf_eval_v3');
-  localStorage.removeItem('ncf_demo_user');
+  localStorage.removeItem('ncf_eval_v4');
+  localStorage.removeItem('ncf_demo_user_v2');
   location.reload();
 }
 
