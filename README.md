@@ -37,6 +37,11 @@ Suggested walkthrough: **Faculty → Student → PO Office → Registrar**.
 
 To reset demo data, run `resetDemoData()` in the browser console.
 
+## How it works
+
+See [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) for a plain-language overview — architecture,
+roles & FERPA access, the data model, how data comes in from Banner, and how it's stored.
+
 ## Production setup
 
 See [`IT_SETUP_GUIDE.md`](IT_SETUP_GUIDE.md) for the full Supabase + auth + Banner-import
