@@ -1346,7 +1346,10 @@ async function renderEvaluationForm(mc) {
         placeholder: 'Write the public narrative evaluation here…',
         modules: { toolbar: locked ? false : toolbarOptions }
       });
-      _publicQuill.root.innerHTML = publicNarr;
+      // Load saved content via the clipboard API (not root.innerHTML) so Quill's
+      // internal model updates and the placeholder/ql-blank class clears — otherwise
+      // the "Write … here" placeholder overlaps existing text.
+      setEditorHtml(_publicQuill, publicNarr);
 
       if (canSeePrivate) {
         _privateQuill = new Quill('#privateEditorContainer', {
@@ -1355,7 +1358,7 @@ async function renderEvaluationForm(mc) {
           placeholder: 'Private evaluation (shared with the student and their advisor)…',
           modules: { toolbar: locked ? false : toolbarOptions }
         });
-        _privateQuill.root.innerHTML = privateNarr;
+        setEditorHtml(_privateQuill, privateNarr);
       }
 
       // Attach change listeners AFTER a tick so Quill's mutation observer
@@ -1877,6 +1880,16 @@ function searchSelect(studentId) {
 
 function roleLabel(role) {
   return ({ faculty: 'Faculty', registrar: 'Registrar', admin: 'Admin', po_office: 'PO Office', student: 'Student' })[role] || role;
+}
+
+// Load HTML into a Quill editor so its internal model updates (clears the
+// ql-blank placeholder). Empty content leaves the editor blank (placeholder shows).
+function setEditorHtml(quill, html) {
+  if (html && html.replace(/<(p|br)>|<\/p>|\s|&nbsp;/gi, '').length) {
+    quill.setContents(quill.clipboard.convert(html), 'silent');
+  } else {
+    quill.setText('', 'silent');
+  }
 }
 
 // Chronological sort key for a semester ("Spring 2026" → 20261). Higher = more recent.
