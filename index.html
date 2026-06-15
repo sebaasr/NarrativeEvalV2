@@ -1023,9 +1023,13 @@ async function renderSidebar() {
   }
 
   if (u.role === 'faculty' || u.role === 'admin') {
-    html += '<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">My Courses</div>';
     try {
       const courses = await Data.getMyCourses(u.id);
+      // Header shows the semester term (most recent among the faculty's courses).
+      const termLabel = courses.length
+        ? [...new Set(courses.map(c => `${c.semester} ${c.year}`))].sort(semesterSortDesc)[0]
+        : 'My Courses';
+      html += `<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">${termLabel}</div>`;
       if (courses.length === 0) {
         html += '<div style="padding:20px;color:#888;font-size:13px;">No courses assigned this semester.</div>';
       } else {
@@ -1050,6 +1054,7 @@ async function renderSidebar() {
         }
       }
     } catch(e) {
+      html += '<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">My Courses</div>';
       html += '<div style="padding:12px;color:#c00;font-size:12px;">Error loading courses.</div>';
     }
     const browseActive = appState.view === 'browse' ? ' active' : '';
