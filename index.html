@@ -1025,32 +1025,36 @@ async function renderSidebar() {
   if (u.role === 'faculty' || u.role === 'admin') {
     try {
       const courses = await Data.getMyCourses(u.id);
-      // Header shows the semester term (most recent among the faculty's courses).
-      const termLabel = courses.length
-        ? [...new Set(courses.map(c => `${c.semester} ${c.year}`))].sort(semesterSortDesc)[0]
-        : 'My Courses';
-      html += `<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">${termLabel}</div>`;
       if (courses.length === 0) {
+        html += '<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">My Courses</div>';
         html += '<div style="padding:20px;color:#888;font-size:13px;">No courses assigned this semester.</div>';
       } else {
+        // One header per semester term, with that term's courses grouped under it.
+        const byTerm = {};
         for (const c of courses) {
-          const studentsInCourse = USE_DEMO
-            ? demoData.students.filter(s => s.enrollments.includes(c.id))
-            : [];
-          const evalsForCourse = USE_DEMO
-            ? demoData.evaluations.filter(e => e.course_id === c.id)
-            : [];
-          const submitted = evalsForCourse.filter(e => e.status === 'submitted').length;
-          const total = USE_DEMO ? studentsInCourse.length : '?';
-          let badgeClass = 'badge-pending', badgeText = `${submitted}/${total} submitted`;
-          if (submitted === total && total > 0) { badgeClass = 'badge-complete'; badgeText = 'All submitted'; }
-          else if (submitted > 0) badgeClass = 'badge-partial';
-          const active = appState.selectedCourseId === c.id && appState.view === 'course' ? ' active' : '';
-          html += `<div class="sidebar-item${active}" onclick="navToCourse('${c.id}')">
-            <div class="si-title">${c.code}: ${c.name}</div>
-            <div class="si-subtitle">${c.semester} ${c.year}</div>
-            <span class="si-badge ${badgeClass}">${badgeText}</span>
-          </div>`;
+          const key = `${c.semester} ${c.year}`;
+          (byTerm[key] = byTerm[key] || []).push(c);
+        }
+        for (const term of Object.keys(byTerm).sort(semesterSortDesc)) {
+          html += `<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">${term}</div>`;
+          for (const c of byTerm[term]) {
+            const studentsInCourse = USE_DEMO
+              ? demoData.students.filter(s => s.enrollments.includes(c.id))
+              : [];
+            const evalsForCourse = USE_DEMO
+              ? demoData.evaluations.filter(e => e.course_id === c.id)
+              : [];
+            const submitted = evalsForCourse.filter(e => e.status === 'submitted').length;
+            const total = USE_DEMO ? studentsInCourse.length : '?';
+            let badgeClass = 'badge-pending', badgeText = `${submitted}/${total} submitted`;
+            if (submitted === total && total > 0) { badgeClass = 'badge-complete'; badgeText = 'All submitted'; }
+            else if (submitted > 0) badgeClass = 'badge-partial';
+            const active = appState.selectedCourseId === c.id && appState.view === 'course' ? ' active' : '';
+            html += `<div class="sidebar-item${active}" onclick="navToCourse('${c.id}')">
+              <div class="si-title">${c.code}: ${c.name}</div>
+              <span class="si-badge ${badgeClass}">${badgeText}</span>
+            </div>`;
+          }
         }
       }
     } catch(e) {
@@ -1501,7 +1505,8 @@ async function renderAdvisorStudentView(mc) {
 
   try {
     const enrollmentIds = USE_DEMO ? student.enrollments : [];
-    let coursesHtml = '';
+    // Group this student's course cards by term (most recent first).
+    const byTerm = {};
 
     for (const courseId of enrollmentIds) {
       const course   = USE_DEMO ? demoData.courses.find(c => c.id === courseId) : null;
@@ -1536,7 +1541,8 @@ async function renderAdvisorStudentView(mc) {
         evalContent = '<div style="padding:12px;color:#888;font-style:italic;">No evaluation submitted yet.</div>';
       }
 
-      coursesHtml += `
+      const termKey = course ? `${course.semester} ${course.year}` : 'Other';
+      const cardHtml = `
         <div class="card">
           <div class="card-header">
             <span>${course?.code}: ${course?.name}</span>
@@ -1547,6 +1553,13 @@ async function renderAdvisorStudentView(mc) {
             ${evalContent}
           </div>
         </div>`;
+      (byTerm[termKey] = byTerm[termKey] || []).push(cardHtml);
+    }
+
+    let coursesHtml = '';
+    for (const term of Object.keys(byTerm).sort(semesterSortDesc)) {
+      coursesHtml += `<div class="rte-label" style="margin:18px 0 8px;font-size:15px;">${term}</div>`;
+      coursesHtml += byTerm[term].join('');
     }
 
     const advisorName = USE_DEMO ? (demoData.profiles.find(p => p.id === student.advisor_id)?.full_name || '—') : '—';
