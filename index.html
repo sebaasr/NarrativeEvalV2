@@ -179,6 +179,13 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .rte-wrapper.readonly .ql-editor { background: #f8f9fa; cursor: default; }
 .rte-label { font-size: 14px; font-weight: 600; margin-top: 20px; margin-bottom: 2px; }
 .rte-label.private-label { color: #c0392b; }
+/* Clear section divider between semester terms */
+.term-divider {
+  font-size: 17px; font-weight: 700; color: #1a1a2e;
+  margin: 28px 0 12px; padding-bottom: 7px;
+  border-bottom: 2px solid #4a6cf7;
+}
+.term-divider:first-child { margin-top: 4px; }
 .private-notice { font-size: 12px; color: #c0392b; font-style: italic; margin-bottom: 4px; }
 .public-notice { font-size: 12px; color: #27ae60; font-style: italic; margin-bottom: 4px; }
 
@@ -1558,7 +1565,7 @@ async function renderAdvisorStudentView(mc) {
 
     let coursesHtml = '';
     for (const term of Object.keys(byTerm).sort(semesterSortDesc)) {
-      coursesHtml += `<div class="rte-label" style="margin:18px 0 8px;font-size:15px;">${term}</div>`;
+      coursesHtml += `<div class="term-divider">${term}</div>`;
       coursesHtml += byTerm[term].join('');
     }
 
@@ -1659,7 +1666,7 @@ function renderStudentGroups() {
 
   let html = '';
   for (const key of Object.keys(groups).sort(semesterSortDesc)) {
-    html += `<div class="rte-label" style="margin:18px 0 8px;font-size:15px;">${key}</div>`;
+    html += `<div class="term-divider">${key}</div>`;
     for (const { course, faculty, ev, privateNarr } of groups[key]) {
       const body = ev ? `
           <div style="margin-bottom:8px;">
