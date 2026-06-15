@@ -186,6 +186,18 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   border-bottom: 2px solid #4a6cf7;
 }
 .term-divider:first-child { margin-top: 4px; }
+/* Evaluation Highlights tile */
+.hl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 700px) { .hl-grid { grid-template-columns: 1fr; } }
+.hl-col-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.hl-item { display: flex; gap: 8px; align-items: flex-start; padding: 7px 8px; border-radius: 6px; cursor: pointer; transition: background 0.15s; }
+.hl-item:hover { background: #f0f4ff; }
+.hl-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex: 0 0 auto; }
+.hl-text { font-size: 13px; line-height: 1.5; color: #333; }
+.hl-ref { color: #4a6cf7; font-size: 12px; white-space: nowrap; }
+.hl-empty { color: #aaa; font-size: 13px; padding: 4px 8px; }
+.flash { animation: flashcard 1.5s ease; }
+@keyframes flashcard { 0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.08); } 25%, 60% { box-shadow: 0 0 0 3px #4a6cf7; } }
 .private-notice { font-size: 12px; color: #c0392b; font-style: italic; margin-bottom: 4px; }
 .public-notice { font-size: 12px; color: #27ae60; font-style: italic; margin-bottom: 4px; }
 
@@ -1514,6 +1526,7 @@ async function renderAdvisorStudentView(mc) {
     const enrollmentIds = USE_DEMO ? student.enrollments : [];
     // Group this student's course cards by term (most recent first).
     const byTerm = {};
+    const submittedRows = [];   // for the aggregated highlights tile
 
     for (const courseId of enrollmentIds) {
       const course   = USE_DEMO ? demoData.courses.find(c => c.id === courseId) : null;
@@ -1548,9 +1561,11 @@ async function renderAdvisorStudentView(mc) {
         evalContent = '<div style="padding:12px;color:#888;font-style:italic;">No evaluation submitted yet.</div>';
       }
 
+      if (ev && ev.status === 'submitted' && course) submittedRows.push({ course, ev });
+
       const termKey = course ? `${course.semester} ${course.year}` : 'Other';
       const cardHtml = `
-        <div class="card">
+        <div class="card" id="evalcard-${course?.id}">
           <div class="card-header">
             <span>${course?.code}: ${course?.name}</span>
             <span style="font-weight:400;font-size:13px;color:#888;">${course?.semester} ${course?.year} · ${faculty?.full_name || ''}</span>
@@ -1579,6 +1594,7 @@ async function renderAdvisorStudentView(mc) {
           <div style="color:#888;font-size:13px;margin-top:2px;">Advisor: ${advisorName}</div>
         </div>
       </div>
+      ${buildHighlightsTile(submittedRows)}
       ${coursesHtml || '<div class="card"><div class="card-body" style="color:#888;">No course enrollments found.</div></div>'}`;
   } catch(e) {
     mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error: ${e.message}</div></div>`;
@@ -1664,7 +1680,7 @@ function renderStudentGroups() {
     (groups[key] = groups[key] || []).push(it);
   }
 
-  let html = '';
+  let html = buildHighlightsTile(filtered);
   for (const key of Object.keys(groups).sort(semesterSortDesc)) {
     html += `<div class="term-divider">${key}</div>`;
     for (const { course, faculty, ev, privateNarr } of groups[key]) {
@@ -1686,7 +1702,7 @@ function renderStudentGroups() {
           </div>` : ''}`
         : '<div style="padding:12px;color:#888;font-style:italic;">No evaluation available yet for this course.</div>';
       html += `
-        <div class="card">
+        <div class="card" id="evalcard-${course.id}">
           <div class="card-header">
             <span>${course.code}: ${course.name}</span>
             <span style="font-weight:400;font-size:13px;color:#888;">${course.semester} ${course.year} · ${faculty?.full_name || ''}</span>
@@ -2116,6 +2132,78 @@ function semesterKey(term, year) { return year * 10 + ({ Spring: 1, Summer: 2, F
 function semesterSortDesc(a, b) {
   const pa = a.split(' '), pb = b.split(' ');
   return semesterKey(pb[0], +pb[1]) - semesterKey(pa[0], +pa[1]);
+}
+
+// ── Evaluation highlights ────────────────────────────────────────────
+// Heuristic extraction of "strengths" and "areas to improve" sentences from a
+// narrative. No backend/API key needed (this app is static). For production,
+// this could be replaced by a Claude-powered summary via a Supabase Edge
+// Function — student360 already does an AI eval-summary server-side.
+function stripHtml(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html || '';
+  return (d.textContent || '').replace(/\s+/g, ' ').trim();
+}
+const STRENGTH_CUES = /\b(exceptional|excellent|outstanding|impressive|insightful|thoughtful|sophisticated|standout|strongest|strong|mastery|generous|reliable|well[-\s](?:argued|organized|written|prepared|reasoned)|engaged|engagement|curious|rigorous|solid|clear(?:ly)?)\b/i;
+const IMPROVE_CUES = /\b(should|could|needs?\sto|struggl\w*|develop|work on|improve|push (?:past|toward|beyond)|would benefit|lack\w*|more deeply|continue (?:developing|to)|to grow|not yet|encourage\w*|hedges?|sharper|stronger thesis)\b/i;
+
+function extractHighlights(html) {
+  const sentences = stripHtml(html)
+    .split(/(?<=[.!?])\s+(?=[A-Z“"])/)
+    .map(s => s.trim())
+    .filter(s => s.length > 20);
+  const strengths = [], improvements = [];
+  for (const s of sentences) {
+    if (IMPROVE_CUES.test(s)) improvements.push(s);
+    else if (STRENGTH_CUES.test(s)) strengths.push(s);
+  }
+  return { strengths, improvements };
+}
+
+// Build the aggregated highlights tile from a student's submitted evaluations.
+// rows: array of { course, ev }. Each highlight links to #evalcard-<courseId>.
+function buildHighlightsTile(rows) {
+  const strengths = [], improvements = [];
+  for (const { course, ev } of rows) {
+    if (!ev || ev.status !== 'submitted' || !course) continue;
+    const h = extractHighlights(ev.public_narrative);
+    const ref = `${course.code} · ${course.semester} ${course.year}`;
+    h.strengths.slice(0, 2).forEach(t => strengths.push({ t, cid: course.id, ref }));
+    h.improvements.slice(0, 2).forEach(t => improvements.push({ t, cid: course.id, ref }));
+  }
+  if (!strengths.length && !improvements.length) return '';
+  const item = (x, color) => `
+    <div class="hl-item" onclick="scrollToEval('${x.cid}')" title="Open the source evaluation">
+      <span class="hl-dot" style="background:${color}"></span>
+      <span class="hl-text">${x.t} <span class="hl-ref">— ${x.ref}</span></span>
+    </div>`;
+  return `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        Evaluation Highlights
+        <span style="font-size:12px;font-weight:400;color:#888;">Auto-extracted · click a highlight to open its evaluation</span>
+      </div>
+      <div class="card-body hl-grid">
+        <div>
+          <div class="hl-col-title" style="color:#1e7e34;">✦ Strengths</div>
+          ${strengths.length ? strengths.map(x => item(x, '#28a745')).join('') : '<div class="hl-empty">—</div>'}
+        </div>
+        <div>
+          <div class="hl-col-title" style="color:#b8860b;">➜ Areas to improve</div>
+          ${improvements.length ? improvements.map(x => item(x, '#e0a800')).join('') : '<div class="hl-empty">—</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+function scrollToEval(courseId) {
+  const el = document.getElementById('evalcard-' + courseId);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.remove('flash');
+  void el.offsetWidth;           // restart the animation if clicked again
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 1600);
 }
 
 function getDesignationBadge(d) {
