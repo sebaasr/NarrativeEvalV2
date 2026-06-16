@@ -505,14 +505,119 @@ const DEMO_INITIAL = {
   accessLog: []
 };
 
+// ── Procedural demo data ─────────────────────────────────────────────
+// Adds ~1000 students (250 per year), extra faculty, a multi-term course
+// catalog, ISP (January-term) courses, and evaluations — on top of the curated
+// records above. Deterministic (fixed seed) so every load is identical. Too
+// large for localStorage, so it is regenerated in memory each load.
+function augmentDemoData(d) {
+  let seed = 987654321;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  const int = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
+  const chance = p => rnd() < p;
+  const sampleN = (arr, n) => { const c = arr.slice(); const out = []; while (out.length < n && c.length) out.push(c.splice(Math.floor(rnd() * c.length), 1)[0]); return out; };
+
+  const FIRST = ['Emma','Liam','Olivia','Noah','Ava','Ethan','Sophia','Mason','Isabella','Lucas','Mia','Aiden','Harper','Elijah','Charlotte','James','Amelia','Benjamin','Evelyn','Henry','Abigail','Sebastian','Ella','Jack','Scarlett','Owen','Grace','Leo','Chloe','Daniel','Layla','Julian','Riley','Gabriel','Nora','Wyatt','Zoe','Caleb','Hazel','Isaac','Aria','Nathan','Lily','Levi','Aurora','Dylan','Maya','Adrian','Sofia','Eli','Camila','Diego','Valentina','Mateo','Luna','Andre','Naomi','Omar','Jade','Kai','Priya','Wei','Yuki','Tariq','Ingrid','Mateus','Freya'];
+  const LAST = ['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Rodriguez','Martinez','Hernandez','Lopez','Gonzalez','Wilson','Anderson','Thomas','Taylor','Moore','Jackson','Martin','Lee','Perez','Thompson','White','Harris','Sanchez','Clark','Ramirez','Lewis','Robinson','Walker','Young','Allen','King','Wright','Scott','Torres','Nguyen','Hill','Flores','Green','Adams','Nelson','Baker','Hall','Rivera','Campbell','Mitchell','Carter','Roberts','Patel','Kim','Okafor','Cohen','Reyes','Watanabe','Ivanova','Singh','Park','Murphy','Haddad','Andersen','Costa','Nakamura'];
+  const DIVS = {
+    'Social Sciences': ['Sociology','Psychology','Anthropology','Economics','Political Science'],
+    'Natural Sciences': ['Biology','Chemistry','Physics','Environmental Studies','Marine Biology'],
+    'Humanities': ['Literature','Philosophy','History','Art History','Religion'],
+  };
+  const DIVNAMES = Object.keys(DIVS);
+  const SUBJ = { Sociology:'SOC', Psychology:'PSY', Anthropology:'ANT', Economics:'ECN', 'Political Science':'POL', Biology:'BIO', Chemistry:'CHM', Physics:'PHY', 'Environmental Studies':'ENV', 'Marine Biology':'MAR', Literature:'LIT', Philosophy:'PHI', History:'HIS', 'Art History':'ART', Religion:'REL' };
+  const TITLES = ['Foundations of','Topics in','Advanced','Introduction to','Seminar in','Studies in','Methods in','History of','Theory of','Problems in'];
+  const SN = ['engaged thoughtfully with the material','produced strong, well-argued work','was a reliable and generous contributor','showed excellent analytical skills','demonstrated genuine curiosity and rigor','wrote with notable clarity and insight'];
+  const IM = ['should continue developing quantitative skills','could engage more deeply with counter-arguments','would benefit from more consistent participation','should work on time management','needs to strengthen written argumentation','could push toward a sharper, more contestable thesis'];
+  const ISP_TOPICS = ['Field Research in Sarasota Bay','Digital Humanities Archive','Independent Reading in Phenomenology','Community Health Survey','Generative Art Studio','Oral History Project','Bioinformatics Pipeline','Translation Workshop'];
+  const wdes = () => { const r = rnd(); return r<0.3?'strong_sat':r<0.7?'sat':r<0.85?'marginal_sat':r<0.9?'unsat':r<0.97?'pass':'fail'; };
+  const mkNarr = name => `<p>${name} ${pick(SN)}. To grow further, ${name.split(' ')[0]} ${pick(IM)}.</p>`;
+  const SUBMIT_DATE = { 'Spring 2026':'2026-05-08T10:00:00', 'Fall 2025':'2025-12-15T10:00:00', 'January 2026':'2026-01-26T10:00:00' };
+
+  // Extra faculty f5..f16, divisions round-robin so each division has several.
+  const advisors = ['f1','f2','f3'];
+  for (let i = 5; i <= 16; i++) {
+    const div = DIVNAMES[(i - 5) % DIVNAMES.length];
+    const name = `${pick(FIRST)} ${pick(LAST)}`;
+    d.profiles.push({ id: 'f'+i, email: `fac${i}@ncf.edu`, full_name: name, role: 'faculty', is_advisor: true, division: div });
+    advisors.push('f'+i);
+  }
+  const facultyByDiv = {};
+  DIVNAMES.forEach(dv => facultyByDiv[dv] = d.profiles.filter(p => p.role === 'faculty' && p.division === dv).map(p => p.id));
+
+  // Course catalog
+  let cseq = 0;
+  const courseById = {};
+  const mkCourse = (term, year, div, opts = {}) => {
+    cseq++;
+    const aoc = opts.aoc || pick(DIVS[div]);
+    const fac = pick(facultyByDiv[div].length ? facultyByDiv[div] : ['f1']);
+    const id = 'cg' + cseq;
+    const code = opts.code || `${SUBJ[aoc]} ${int(100,499)}`;
+    const name = opts.name || `${pick(TITLES)} ${aoc}`;
+    const c = { id, code, name, semester: term, year, faculty_id: fac, division: div, description: `${name}. A ${div} course in ${aoc}.`, is_isp: !!opts.isp };
+    d.courses.push(c); courseById[id] = c; return id;
+  };
+  const springCourses = [], fallCourses = [], spring25Courses = [], ispCourses = [];
+  const thesisCourse = {};
+  DIVNAMES.forEach(dv => {
+    for (let i = 0; i < 8; i++) springCourses.push(mkCourse('Spring', 2026, dv));
+    for (let i = 0; i < 6; i++) fallCourses.push(mkCourse('Fall', 2025, dv));
+    for (let i = 0; i < 5; i++) spring25Courses.push(mkCourse('Spring', 2025, dv));
+    thesisCourse[dv] = mkCourse('Spring', 2026, dv, { code: 'THES 400', name: 'Senior Thesis' });
+    ispCourses.push(mkCourse('January', 2026, dv, { isp: true, code: 'ISP 290', name: `ISP: ${pick(ISP_TOPICS)}` }));
+  });
+
+  // Students + evaluations
+  const YEARS = ['First Year','Second Year','Third Year','Fourth Year'];
+  let sseq = d.students.length, eseq = d.evaluations.length;
+  const mkEval = (sid, cid, name, termLabel, status) => {
+    const c = courseById[cid]; if (!c) return;
+    eseq++; const id = 'eg' + eseq;
+    const submitted = status === 'submitted';
+    d.evaluations.push({
+      id, student_id: sid, course_id: cid, faculty_id: c.faculty_id,
+      designation: submitted ? wdes() : '',
+      public_narrative: submitted ? mkNarr(name) : '',
+      status, submitted_at: submitted ? SUBMIT_DATE[termLabel] : null,
+      updated_at: SUBMIT_DATE[termLabel],
+    });
+    if (submitted && chance(0.5)) d.privateNotes[id] = `<p>Privately: ${name.split(' ')[0]} ${pick(IM)}.</p>`;
+  };
+
+  for (let k = 0; k < 1000; k++) {
+    sseq++; const id = 's' + sseq;
+    const yi = Math.floor(k / 250);              // 0..3, 250 each
+    const year = YEARS[yi];
+    const div = DIVNAMES[k % DIVNAMES.length];
+    const aoc = (yi === 0 && chance(0.5)) ? 'Undeclared' : pick(DIVS[div]);
+    const name = `${pick(FIRST)} ${pick(LAST)}`;
+    const advisor = pick(advisors);
+    const nnum = 'N' + String(400000 + sseq).padStart(8, '0');
+    const thesisOnly = yi === 3 && chance(0.4);  // some seniors: thesis only
+    const enrollments = thesisOnly ? [thesisCourse[div]] : sampleN(springCourses, int(3, 4));
+    d.students.push({ id, n_number: nnum, full_name: name, advisor_id: advisor, year_level: year, contracts_completed: yi * 2 + int(0, 2), aoc, enrollments });
+
+    for (const cid of enrollments) {
+      const st = pick(['submitted','submitted','submitted','draft','none']);
+      if (st !== 'none') mkEval(id, cid, name, 'Spring 2026', st);
+    }
+    if (yi >= 1) for (const cid of sampleN(fallCourses, int(2, 3))) mkEval(id, cid, name, 'Fall 2025', 'submitted');
+    if (chance(0.15)) mkEval(id, pick(ispCourses), name, 'January 2026', 'submitted');
+  }
+}
+
 function demoLoadData() {
-  const saved = localStorage.getItem('ncf_eval_v5');
-  if (saved) return JSON.parse(saved);
+  // Regenerate fresh each load (too large to round-trip through localStorage).
   const fresh = JSON.parse(JSON.stringify(DEMO_INITIAL));
-  localStorage.setItem('ncf_eval_v5', JSON.stringify(fresh));
+  augmentDemoData(fresh);
   return fresh;
 }
-function demoSaveData(d) { localStorage.setItem('ncf_eval_v5', JSON.stringify(d)); }
+function demoSaveData(d) {
+  // Session edits already mutate the in-memory demoData; persistence is best-effort.
+  try { localStorage.setItem('ncf_eval_v6_small', '1'); } catch (e) { /* ignore quota */ }
+}
 
 let demoData = demoLoadData();
 
@@ -1786,7 +1891,9 @@ function applyBrowseFilters() {
     return;
   }
 
-  const body = filtered.map(r => {
+  const ROW_LIMIT = 300;
+  const shown = filtered.slice(0, ROW_LIMIT);
+  const body = shown.map(r => {
     const c = r.course, s = r.student;
     const statusBadge = r.ev.status === 'submitted'
       ? '<span class="status-badge status-submitted">Submitted</span>'
@@ -1804,6 +1911,9 @@ function applyBrowseFilters() {
     </tr>`;
   }).join('');
 
+  const note = filtered.length > ROW_LIMIT
+    ? `Showing first ${ROW_LIMIT} of ${filtered.length} — refine the filters to narrow.`
+    : `${filtered.length} evaluation${filtered.length !== 1 ? 's' : ''} shown`;
   container.innerHTML = `
     <table class="student-table">
       <thead><tr>
@@ -1812,7 +1922,7 @@ function applyBrowseFilters() {
       </tr></thead>
       <tbody>${body}</tbody>
     </table>
-    <div style="font-size:12px;color:#888;margin-top:10px;">${filtered.length} evaluation${filtered.length !== 1 ? 's' : ''} shown</div>`;
+    <div style="font-size:12px;color:#888;margin-top:10px;">${note}</div>`;
 }
 
 function openBrowseRow(studentId, courseId, facultyId) {
@@ -1921,8 +2031,10 @@ function applyRegistrarFilters() {
     return;
   }
 
+  const ROW_LIMIT = 300;
+  const shown = rows.slice(0, ROW_LIMIT);
   let tableRows = '';
-  for (const e of rows) {
+  for (const e of shown) {
     const s  = USE_DEMO ? demoData.students.find(ss => ss.id === e.student_id) : e.student;
     const c  = USE_DEMO ? demoData.courses.find(cc => cc.id === e.course_id)   : e.course;
     const fac = USE_DEMO ? demoData.profiles.find(p => p.id === e.faculty_id)  : e.faculty;
@@ -1951,7 +2063,7 @@ function applyRegistrarFilters() {
       </tr></thead>
       <tbody>${tableRows}</tbody>
     </table>
-    <div style="font-size:12px;color:#888;margin-top:10px;">${rows.length} record${rows.length !== 1 ? 's' : ''} shown</div>`;
+    <div style="font-size:12px;color:#888;margin-top:10px;">${rows.length > ROW_LIMIT ? `Showing first ${ROW_LIMIT} of ${rows.length} — refine the filters to narrow.` : `${rows.length} record${rows.length !== 1 ? 's' : ''} shown`}</div>`;
 }
 
 function openFullEvalRegistrar(studentId, courseId) {
