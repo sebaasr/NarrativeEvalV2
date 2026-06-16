@@ -421,6 +421,9 @@ const CONFIG = {
   demoMode:        true,   // set to false once Supabase is configured
 };
 
+// The institution's current term. Faculty default to this; Browse covers the rest.
+const CURRENT_TERM = 'Spring 2026';
+
 const USE_DEMO = CONFIG.demoMode || CONFIG.supabaseUrl.includes('YOUR_');
 let _supabase = null;
 if (!USE_DEMO) {
@@ -1025,11 +1028,11 @@ async function renderSidebar() {
           const key = `${it.course.semester} ${it.course.year}`;
           (groups[key] = groups[key] || []).push(it);
         }
-        const active = appState.view === 'student-home' ? ' active' : '';
         for (const k of Object.keys(groups).sort(semesterSortDesc)) {
           const g = groups[k];
           const done = g.filter(x => x.ev).length;
-          html += `<div class="sidebar-item${active}" onclick="navToStudentHome()">
+          const active = (appState.view === 'student-home' && appState.studentSemFilter === k) ? ' active' : '';
+          html += `<div class="sidebar-item${active}" onclick="navToStudentHome('${k}')">
             <div class="si-title">${k}</div>
             <div class="si-subtitle">${g.length} course${g.length !== 1 ? 's' : ''}</div>
             <span class="si-badge ${done > 0 ? 'badge-partial' : 'badge-pending'}">${done}/${g.length} available</span>
@@ -1043,37 +1046,30 @@ async function renderSidebar() {
 
   if (u.role === 'faculty' || u.role === 'admin') {
     try {
-      const courses = await Data.getMyCourses(u.id);
+      const allCourses = await Data.getMyCourses(u.id);
+      // Default view = the CURRENT semester only. Older terms live in Browse.
+      const courses = allCourses.filter(c => `${c.semester} ${c.year}` === CURRENT_TERM);
+      html += `<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">${CURRENT_TERM}</div>`;
       if (courses.length === 0) {
-        html += '<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">My Courses</div>';
         html += '<div style="padding:20px;color:#888;font-size:13px;">No courses assigned this semester.</div>';
       } else {
-        // One header per semester term, with that term's courses grouped under it.
-        const byTerm = {};
         for (const c of courses) {
-          const key = `${c.semester} ${c.year}`;
-          (byTerm[key] = byTerm[key] || []).push(c);
-        }
-        for (const term of Object.keys(byTerm).sort(semesterSortDesc)) {
-          html += `<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">${term}</div>`;
-          for (const c of byTerm[term]) {
-            const studentsInCourse = USE_DEMO
-              ? demoData.students.filter(s => s.enrollments.includes(c.id))
-              : [];
-            const evalsForCourse = USE_DEMO
-              ? demoData.evaluations.filter(e => e.course_id === c.id)
-              : [];
-            const submitted = evalsForCourse.filter(e => e.status === 'submitted').length;
-            const total = USE_DEMO ? studentsInCourse.length : '?';
-            let badgeClass = 'badge-pending', badgeText = `${submitted}/${total} submitted`;
-            if (submitted === total && total > 0) { badgeClass = 'badge-complete'; badgeText = 'All submitted'; }
-            else if (submitted > 0) badgeClass = 'badge-partial';
-            const active = appState.selectedCourseId === c.id && appState.view === 'course' ? ' active' : '';
-            html += `<div class="sidebar-item${active}" onclick="navToCourse('${c.id}')">
-              <div class="si-title">${c.code}: ${c.name}</div>
-              <span class="si-badge ${badgeClass}">${badgeText}</span>
-            </div>`;
-          }
+          const studentsInCourse = USE_DEMO
+            ? demoData.students.filter(s => s.enrollments.includes(c.id))
+            : [];
+          const evalsForCourse = USE_DEMO
+            ? demoData.evaluations.filter(e => e.course_id === c.id)
+            : [];
+          const submitted = evalsForCourse.filter(e => e.status === 'submitted').length;
+          const total = USE_DEMO ? studentsInCourse.length : '?';
+          let badgeClass = 'badge-pending', badgeText = `${submitted}/${total} submitted`;
+          if (submitted === total && total > 0) { badgeClass = 'badge-complete'; badgeText = 'All submitted'; }
+          else if (submitted > 0) badgeClass = 'badge-partial';
+          const active = appState.selectedCourseId === c.id && appState.view === 'course' ? ' active' : '';
+          html += `<div class="sidebar-item${active}" onclick="navToCourse('${c.id}')">
+            <div class="si-title">${c.code}: ${c.name}</div>
+            <span class="si-badge ${badgeClass}">${badgeText}</span>
+          </div>`;
         }
       }
     } catch(e) {
@@ -1168,9 +1164,10 @@ function navToAccessLog() {
   renderMain();
 }
 
-function navToStudentHome() {
+function navToStudentHome(sem) {
   if (!warnIfDirty()) return;
   destroyEditors();
+  appState.studentSemFilter = sem || '';   // '' = all semesters
   appState.view = 'student-home';
   renderSidebar();
   renderMain();
@@ -1310,7 +1307,7 @@ async function renderEvaluationForm(mc) {
     const publicNarr      = ev?.public_narrative || '';
     let   privateNarr     = '';
 
-    // The Private Evaluation is authored by the course faculty and shared only
+    // The Internal Narrative Evaluation is authored by the course faculty and shared only
     // with the student and their advisor (each sees it in their own view). In
     // THIS form, only the authoring faculty can see/edit it — Registrar, PO
     // Office, and Admin have no access to it.
@@ -1381,14 +1378,14 @@ async function renderEvaluationForm(mc) {
 
           <div class="course-desc-box"><strong>Course Description:</strong> ${course.description}</div>
 
-          <div class="rte-label">Public Narrative Evaluation</div>
+          <div class="rte-label">External Narrative Evaluation</div>
           <div class="public-notice">This evaluation becomes part of the student's official academic record.</div>
           <div class="rte-wrapper${locked ? ' readonly' : ''}" id="publicEditorWrapper">
             <div id="publicEditorContainer"></div>
           </div>
 
           ${canSeePrivate ? `
-          <div class="rte-label private-label">Private Evaluation</div>
+          <div class="rte-label private-label">Internal Narrative Evaluation</div>
           <div class="private-notice">Shared only with the student and their advisor — not part of the public record, and not visible to the Registrar or PO Office.</div>
           <div class="rte-wrapper${locked ? ' readonly' : ''}" id="privateEditorWrapper">
             <div id="privateEditorContainer"></div>
@@ -1418,7 +1415,7 @@ async function renderEvaluationForm(mc) {
       _publicQuill = new Quill('#publicEditorContainer', {
         theme: 'snow',
         readOnly: locked,
-        placeholder: 'Write the public narrative evaluation here…',
+        placeholder: 'Write the external narrative evaluation here…',
         modules: { toolbar: locked ? false : toolbarOptions }
       });
       // Load saved content via the clipboard API (not root.innerHTML) so Quill's
@@ -1430,7 +1427,7 @@ async function renderEvaluationForm(mc) {
         _privateQuill = new Quill('#privateEditorContainer', {
           theme: 'snow',
           readOnly: locked,
-          placeholder: 'Private evaluation (shared with the student and their advisor)…',
+          placeholder: 'Internal narrative evaluation (shared with the student and their advisor)…',
           modules: { toolbar: locked ? false : toolbarOptions }
         });
         setEditorHtml(_privateQuill, privateNarr);
@@ -1535,7 +1532,7 @@ async function renderAdvisorStudentView(mc) {
 
       let evalContent = '';
       if (ev && ev.status === 'submitted') {
-        // Advisors see the Private Evaluation too (shared faculty/student/advisor).
+        // Advisors see the Internal Narrative Evaluation too (shared faculty/student/advisor).
         const privateNarr = await Data.getPrivateNote(ev.id);
         evalContent = `
           <div style="margin-top:12px;">
@@ -1544,12 +1541,12 @@ async function renderAdvisorStudentView(mc) {
               &nbsp;&nbsp;
               <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${new Date(ev.submitted_at).toLocaleDateString()}</span>
             </div>
-            <div class="rte-label">Public Narrative</div>
+            <div class="rte-label">External Narrative Evaluation</div>
             <div class="rte-wrapper readonly" style="margin-top:6px;">
               <div style="padding:14px;font-size:14px;line-height:1.6;">${ev.public_narrative}</div>
             </div>
             ${privateNarr ? `
-            <div class="rte-label private-label" style="margin-top:12px;">Private Evaluation</div>
+            <div class="rte-label private-label" style="margin-top:12px;">Internal Narrative Evaluation</div>
             <div class="private-notice">Shared with you (advisor), the student, and the course faculty. Not part of the public record.</div>
             <div class="rte-wrapper readonly" style="margin-top:6px;">
               <div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div>
@@ -1606,7 +1603,7 @@ async function renderAdvisorStudentView(mc) {
 // SECTION 12B: STUDENT VIEW
 // Students see ONLY their own submitted evaluations (designation + public
 // narrative + private evaluation), grouped by semester (current and previous).
-// Students see the Private Evaluation that faculty share with them and their
+// Students see the Internal Narrative Evaluation that faculty share with them and their
 // advisor — but never anything from the Registrar/PO-only side. RLS enforces this.
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1616,7 +1613,7 @@ async function renderStudentView(mc) {
   try {
     const items = await Data.getStudentCoursesWithEvals(u.student_id);
     Data.logAccess('view_student_record', 'student', u.student_id, u.student_id);
-    // Fetch the Private Evaluation for each submitted eval (shared with the student).
+    // Fetch the Internal Narrative Evaluation for each submitted eval (shared with the student).
     await Promise.all(items.map(async it => { if (it.ev) it.privateNarr = await Data.getPrivateNote(it.ev.id); }));
 
     if (items.length === 0) {
@@ -1629,7 +1626,9 @@ async function renderStudentView(mc) {
     const semesters = [...new Set(items.map(i => `${i.course.semester} ${i.course.year}`))].sort(semesterSortDesc);
     const areas = [...new Set(items.map(i => i.course.division).filter(Boolean))].sort();
     const profs = [...new Set(items.map(i => i.faculty?.full_name).filter(Boolean))].sort();
-    const opt = (arr, label) => `<option value="">${label}</option>` + arr.map(v => `<option value="${v}">${v}</option>`).join('');
+    const opt = (arr, label, cur = '') => `<option value="">${label}</option>` + arr.map(v => `<option value="${v}"${v === cur ? ' selected' : ''}>${v}</option>`).join('');
+    // A semester clicked in the sidebar pre-selects the Semester filter.
+    const preSem = appState.studentSemFilter || '';
 
     mc.innerHTML = `
       <div class="card" style="margin-bottom:16px;">
@@ -1639,7 +1638,7 @@ async function renderStudentView(mc) {
           <div style="color:#888;font-size:13px;margin-top:2px;">Only submitted evaluations are shown.</div>
           <div class="filter-bar" style="margin-top:14px;">
             <div class="filter-group"><label>Semester</label>
-              <select class="filter-select" id="sSem" onchange="renderStudentGroups()">${opt(semesters,'All semesters')}</select></div>
+              <select class="filter-select" id="sSem" onchange="renderStudentGroups()">${opt(semesters,'All semesters', preSem)}</select></div>
             <div class="filter-group"><label>Area</label>
               <select class="filter-select" id="sArea" onchange="renderStudentGroups()">${opt(areas,'All areas')}</select></div>
             <div class="filter-group"><label>Faculty</label>
@@ -1695,7 +1694,7 @@ function renderStudentGroups() {
             <div style="padding:14px;font-size:14px;line-height:1.6;">${ev.public_narrative}</div>
           </div>
           ${privateNarr ? `
-          <div class="rte-label private-label" style="margin-top:12px;">Private Evaluation</div>
+          <div class="rte-label private-label" style="margin-top:12px;">Internal Narrative Evaluation</div>
           <div class="private-notice">Shared with you, your advisor, and the course faculty. Not part of the public record.</div>
           <div class="rte-wrapper readonly" style="margin-top:6px;">
             <div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div>
