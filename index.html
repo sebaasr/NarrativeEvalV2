@@ -198,6 +198,23 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .hl-empty { color: #aaa; font-size: 13px; padding: 4px 8px; }
 .flash { animation: flashcard 1.5s ease; }
 @keyframes flashcard { 0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.08); } 25%, 60% { box-shadow: 0 0 0 3px #4a6cf7; } }
+/* Advisees list */
+.advisee-table tr.senior td { background: #fff8e1; }
+.advisee-table tr.clickable:hover td { background: #f0f4ff; }
+.senior-pill { background: #ffe082; color: #7a5b00; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
+/* Contract / Banner */
+.banner-ok { background: #d4edda; color: #155724; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 10px; }
+.contract-course { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid #eef; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+.contract-course:hover { border-color: #4a6cf7; background: #f7f9ff; }
+/* Slide-over eval panel */
+.evalpanel-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 900; }
+.evalpanel-backdrop.open { opacity: 1; pointer-events: auto; }
+.evalpanel { position: fixed; top: 0; right: 0; height: 100vh; width: 560px; max-width: 92vw; background: #fff; box-shadow: -8px 0 28px rgba(0,0,0,0.18); transform: translateX(100%); transition: transform .25s ease; z-index: 901; display: flex; flex-direction: column; }
+.evalpanel.open { transform: translateX(0); }
+.evalpanel-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #eee; }
+.evalpanel-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
+.evalpanel-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #888; line-height: 1; }
+.evalpanel-close:hover { color: #333; }
 .private-notice { font-size: 12px; color: #c0392b; font-style: italic; margin-bottom: 4px; }
 .public-notice { font-size: 12px; color: #27ae60; font-style: italic; margin-bottom: 4px; }
 
@@ -407,6 +424,16 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Slide-over evaluation panel (read an evaluation without leaving the page) -->
+<div class="evalpanel-backdrop" id="evalPanelBackdrop" onclick="closeEvalPanel()"></div>
+<div class="evalpanel" id="evalPanel">
+  <div class="evalpanel-head">
+    <strong id="evalPanelTitle">Evaluation</strong>
+    <button class="evalpanel-close" onclick="closeEvalPanel()" aria-label="Close">&times;</button>
+  </div>
+  <div class="evalpanel-body" id="evalPanelBody"></div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════════════════
 // SECTION 1: CONFIGURATION
@@ -502,7 +529,8 @@ const DEMO_INITIAL = {
     'e4': '<p>Strong graduate-school potential. Encourage Alex to apply for the summer research fellowship and to start building a relationship with a thesis sponsor early.</p>',
     'e5': '<p>Privately: Alex hedges in writing when anxious about being wrong. Worth a direct conversation — the confidence is warranted.</p>',
   },
-  accessLog: []
+  accessLog: [],
+  contracts: {}    // keyed by student_id → current-term contract (designation + certification)
 };
 
 // ── Procedural demo data ─────────────────────────────────────────────
@@ -1189,27 +1217,14 @@ async function renderSidebar() {
   }
 
   if (u.is_advisor || u.role === 'admin') {
-    html += '<div class="sidebar-header" style="margin-top:8px;"><img src="assets/NCF Shield RGB_no color copy.png" alt="">My Advisees</div>';
-    try {
-      const advisees = await Data.getMyAdvisees(u.id);
-      if (advisees.length === 0) {
-        html += '<div style="padding:20px;color:#888;font-size:13px;">No advisees assigned.</div>';
-      } else {
-        for (const s of advisees) {
-          const evalsForStudent = USE_DEMO ? demoData.evaluations.filter(e => e.student_id === s.id) : [];
-          const submitted = evalsForStudent.filter(e => e.status === 'submitted').length;
-          const total = s.enrollments ? s.enrollments.length : '?';
-          const active = appState.selectedStudentId === s.id && appState.view === 'advisor-student' ? ' active' : '';
-          html += `<div class="sidebar-item${active}" onclick="navToAdvisee('${s.id}')">
-            <div class="si-title">${s.full_name}</div>
-            <div class="si-subtitle">${s.n_number} · ${s.year_level}</div>
-            <span class="si-badge ${submitted > 0 ? 'badge-partial' : 'badge-pending'}">${submitted}/${total} evals</span>
-          </div>`;
-        }
-      }
-    } catch(e) {
-      html += '<div style="padding:12px;color:#c00;font-size:12px;">Error loading advisees.</div>';
-    }
+    html += '<div class="sidebar-header" style="margin-top:8px;"><img src="assets/NCF Shield RGB_no color copy.png" alt="">Advising</div>';
+    let count = '';
+    try { count = `${(await Data.getMyAdvisees(u.id)).length} advisees`; } catch(e) { count = ''; }
+    const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student' || appState.view === 'contract') ? ' active' : '';
+    html += `<div class="sidebar-item${adviseesActive}" onclick="navToAdvisees()">
+      <div class="si-title">My Advisees</div>
+      <div class="si-subtitle">${count}</div>
+    </div>`;
   }
 
   if (canViewAll) {
@@ -1244,11 +1259,29 @@ function navToCourse(courseId) {
   renderMain();
 }
 
+function navToAdvisees() {
+  if (!warnIfDirty()) return;
+  destroyEditors();
+  appState.view = 'advisees-list';
+  renderSidebar();
+  renderMain();
+}
+
 function navToAdvisee(studentId) {
   if (!warnIfDirty()) return;
   destroyEditors();
   appState.selectedStudentId = studentId;
+  appState.advisorSemFilter = undefined;   // reset → defaults to last semester
   appState.view = 'advisor-student';
+  renderSidebar();
+  renderMain();
+}
+
+function navToContract(studentId) {
+  if (!warnIfDirty()) return;
+  destroyEditors();
+  appState.selectedStudentId = studentId;
+  appState.view = 'contract';
   renderSidebar();
   renderMain();
 }
@@ -1306,7 +1339,9 @@ function renderMain() {
   switch (appState.view) {
     case 'course':          renderCourseView(mc); break;
     case 'evaluation':      renderEvaluationForm(mc); break;
+    case 'advisees-list':   renderAdviseesList(mc); break;
     case 'advisor-student': renderAdvisorStudentView(mc); break;
+    case 'contract':        renderContractView(mc); break;
     case 'registrar':       renderRegistrarView(mc); break;
     case 'access-log':      renderAccessLogView(mc); break;
     case 'student-home':    renderStudentView(mc); break;
@@ -1626,9 +1661,8 @@ async function renderAdvisorStudentView(mc) {
 
   try {
     const enrollmentIds = USE_DEMO ? student.enrollments : [];
-    // Group this student's course cards by term (most recent first).
-    const byTerm = {};
-    const submittedRows = [];   // for the aggregated highlights tile
+    const items = [];            // { termKey, division, facultyName, cardHtml }
+    const submittedRows = [];    // for the aggregated highlights tile
 
     for (const courseId of enrollmentIds) {
       const course   = USE_DEMO ? demoData.courses.find(c => c.id === courseId) : null;
@@ -1677,30 +1711,72 @@ async function renderAdvisorStudentView(mc) {
             ${evalContent}
           </div>
         </div>`;
-      (byTerm[termKey] = byTerm[termKey] || []).push(cardHtml);
+      items.push({ termKey, division: course?.division || '', facultyName: faculty?.full_name || '', cardHtml });
     }
 
-    let coursesHtml = '';
-    for (const term of Object.keys(byTerm).sort(semesterSortDesc)) {
-      coursesHtml += `<div class="term-divider">${term}</div>`;
-      coursesHtml += byTerm[term].join('');
-    }
+    window._advisorItems = items;
+    window._advisorHighlights = buildHighlightsTile(submittedRows);
 
+    const terms = [...new Set(items.map(i => i.termKey))].sort(semesterSortDesc);
+    const areas = [...new Set(items.map(i => i.division).filter(Boolean))].sort();
+    const profs = [...new Set(items.map(i => i.facultyName).filter(Boolean))].sort();
+    // Default to the LAST (most recent) semester; user can switch / pick "All".
+    const defSem = (appState.advisorSemFilter !== undefined) ? appState.advisorSemFilter : (terms[0] || '');
+    const opt = (arr, label, cur) => `<option value="">${label}</option>` + arr.map(v => `<option value="${v}"${v === cur ? ' selected' : ''}>${v}</option>`).join('');
     const advisorName = USE_DEMO ? (demoData.profiles.find(p => p.id === student.advisor_id)?.full_name || '—') : '—';
 
     mc.innerHTML = `
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
-          <h3 style="margin-bottom:4px;">${student.full_name}</h3>
-          <div style="color:#666;font-size:14px;">${student.n_number} · ${student.year_level} · ${student.contracts_completed ?? '—'} contracts completed</div>
-          <div style="color:#888;font-size:13px;margin-top:2px;">Advisor: ${advisorName}</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+            <div>
+              <h3 style="margin-bottom:4px;">${student.full_name}</h3>
+              <div style="color:#666;font-size:14px;">${student.n_number} · ${student.year_level} · ${student.contracts_completed ?? '—'} contracts · ${student.aoc || '—'}</div>
+              <div style="color:#888;font-size:13px;margin-top:2px;">Advisor: ${advisorName}</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="navToContract('${student.id}')">Current Contract / Certify ›</button>
+          </div>
+          <div class="filter-bar" style="margin-top:14px;">
+            <div class="filter-group"><label>Semester</label>
+              <select class="filter-select" id="aSem" onchange="renderAdvisorGroups()">${opt(terms, 'All semesters', defSem)}</select></div>
+            <div class="filter-group"><label>Area</label>
+              <select class="filter-select" id="aArea" onchange="renderAdvisorGroups()">${opt(areas, 'All areas', '')}</select></div>
+            <div class="filter-group"><label>Faculty</label>
+              <select class="filter-select" id="aProf" onchange="renderAdvisorGroups()">${opt(profs, 'All faculty', '')}</select></div>
+          </div>
         </div>
       </div>
-      ${buildHighlightsTile(submittedRows)}
-      ${coursesHtml || '<div class="card"><div class="card-body" style="color:#888;">No course enrollments found.</div></div>'}`;
+      ${window._advisorHighlights}
+      <div id="advisorGroups"></div>`;
+    renderAdvisorGroups();
   } catch(e) {
     mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error: ${e.message}</div></div>`;
   }
+}
+
+// Renders the advisee's evaluation cards, grouped by term, applying the
+// Semester / Area / Faculty filters from the advisor view's filter bar.
+function renderAdvisorGroups() {
+  const items = window._advisorItems || [];
+  const sem  = document.getElementById('aSem')?.value  || '';
+  const area = document.getElementById('aArea')?.value || '';
+  const prof = document.getElementById('aProf')?.value || '';
+  const container = document.getElementById('advisorGroups');
+  if (!container) return;
+  const filtered = items.filter(i =>
+    (!sem || i.termKey === sem) && (!area || i.division === area) && (!prof || i.facultyName === prof));
+  if (!filtered.length) {
+    container.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;color:#888;padding:30px;">No evaluations match these filters.</div></div>';
+    return;
+  }
+  const groups = {};
+  for (const it of filtered) (groups[it.termKey] = groups[it.termKey] || []).push(it.cardHtml);
+  let html = '';
+  for (const term of Object.keys(groups).sort(semesterSortDesc)) {
+    html += `<div class="term-divider">${term}</div>`;
+    html += groups[term].join('');
+  }
+  container.innerHTML = html;
 }
 
 
@@ -1933,6 +2009,209 @@ function openBrowseRow(studentId, courseId, facultyId) {
     return navToAdvisee(studentId);
   }
   return openFullEvalRegistrar(studentId, courseId);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 12D: ADVISEES PAGE + CONTRACT CERTIFICATION (SES-style)
+// ═══════════════════════════════════════════════════════════════════
+
+// Contract store (demo). In production a `contracts` table would back this.
+function getContract(studentId) {
+  const base = { student_id: studentId, term: CURRENT_TERM, designation: '', certified: false, certified_at: null, banner_pushed: false, banner_pushed_at: null };
+  if (USE_DEMO) return Object.assign(base, demoData.contracts[studentId] || {});
+  return base;
+}
+function saveContract(studentId, patch) {
+  const next = Object.assign(getContract(studentId), patch, { student_id: studentId, term: CURRENT_TERM });
+  if (USE_DEMO) { demoData.contracts[studentId] = next; demoSaveData(demoData); }
+  return next;
+}
+// Stub for the Banner push (no real Banner in the demo).
+function bannerPushToast(what) {
+  showToast(`${what} pushed to Banner ✓`, '#28a745');
+  Data.logAccess('banner_push', 'banner', null, appState.selectedStudentId);
+}
+
+// ── My Advisees: list page (seniors highlighted in yellow) ──
+async function renderAdviseesList(mc) {
+  mc.innerHTML = '<div class="loading"><div class="spinner"></div>Loading advisees…</div>';
+  const u = appState.currentUser;
+  try {
+    const advisees = await Data.getMyAdvisees(u.id);
+    const yrOrder = { 'Fourth Year': 0, 'Third Year': 1, 'Second Year': 2, 'First Year': 3 };
+    advisees.sort((a, b) => (yrOrder[a.year_level] ?? 9) - (yrOrder[b.year_level] ?? 9) || a.full_name.localeCompare(b.full_name));
+    const rows = advisees.map(s => {
+      const submitted = USE_DEMO ? demoData.evaluations.filter(e => e.student_id === s.id && e.status === 'submitted').length : 0;
+      const isSenior = s.year_level === 'Fourth Year';
+      const certified = getContract(s.id).certified;
+      return `<tr class="clickable${isSenior ? ' senior' : ''}" onclick="navToAdvisee('${s.id}')">
+        <td>${s.full_name}${isSenior ? ' <span class="senior-pill">Senior</span>' : ''}</td>
+        <td>${s.n_number}</td>
+        <td>${s.year_level}</td>
+        <td>${s.aoc || '—'}</td>
+        <td>${s.contracts_completed ?? '—'}</td>
+        <td>${submitted} submitted</td>
+        <td>${certified ? '<span class="banner-ok">Certified</span>' : '<span style="color:#888;font-size:12px;">Pending</span>'}</td>
+      </tr>`;
+    }).join('');
+    const seniors = advisees.filter(s => s.year_level === 'Fourth Year').length;
+    mc.innerHTML = `
+      <div class="card">
+        <div class="card-header">My Advisees <span style="font-size:13px;font-weight:400;color:#888;">${advisees.length} total · ${seniors} seniors</span></div>
+        <div class="card-body">
+          <div style="font-size:13px;color:#888;margin-bottom:10px;">Seniors are highlighted. Click a student to see their evaluations and certify their contract.</div>
+          <table class="student-table advisee-table">
+            <thead><tr><th>Student</th><th>N-Number</th><th>Year</th><th>AOC</th><th>Contracts</th><th>Evaluations</th><th>Contract</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px;">No advisees assigned.</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) {
+    mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error loading advisees: ${e.message}</div></div>`;
+  }
+}
+
+// ── Contract certification page ──
+function renderContractView(mc) {
+  const student = USE_DEMO ? demoData.students.find(s => s.id === appState.selectedStudentId) : null;
+  if (!student) { mc.innerHTML = '<div class="loading">Student not found.</div>'; return; }
+  const contract = getContract(student.id);
+  const courseIds = USE_DEMO ? (student.enrollments || []) : [];
+  const courses = courseIds.map(cid => demoData.courses.find(c => c.id === cid)).filter(c => c && `${c.semester} ${c.year}` === CURRENT_TERM);
+
+  const courseRows = courses.map(c => {
+    const ev = USE_DEMO ? demoData.evaluations.find(e => e.student_id === student.id && e.course_id === c.id) : null;
+    const faculty = USE_DEMO ? demoData.profiles.find(p => p.id === c.faculty_id) : null;
+    const statusBadge = ev
+      ? (ev.status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>' : '<span class="status-badge status-draft">Draft</span>')
+      : '<span class="status-badge status-not-started">Not started</span>';
+    return `<div class="contract-course" onclick="openEvalPanel('${student.id}','${c.id}')">
+      <div>
+        <div style="font-weight:600;font-size:14px;">${c.code}: ${c.name}</div>
+        <div style="font-size:12px;color:#888;">${faculty?.full_name || ''} · ${c.semester} ${c.year}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${ev ? getDesignationBadge(ev.designation) : ''}
+        ${statusBadge}
+        <span style="color:#4a6cf7;font-size:12px;">Open ›</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const certifiedBanner = contract.certified ? `
+    <div class="lock-notice">✓ <strong>Contract certified</strong> on ${new Date(contract.certified_at).toLocaleDateString()} — designation: ${contract.designation === 'sat' ? 'Satisfactory' : 'Unsatisfactory'}.${contract.banner_pushed ? ' <span class="banner-ok">Pushed to Banner ✓</span>' : ''}</div>` : '';
+
+  mc.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <button class="btn btn-outline btn-sm" onclick="navToAdvisee('${student.id}')">← Back to ${student.full_name.split(' ')[0]}'s evaluations</button>
+    </div>
+    <div class="card">
+      <div class="card-header">Current Contract — ${CURRENT_TERM}</div>
+      <div class="card-body">
+        ${certifiedBanner}
+        <div class="eval-header-grid">
+          <div class="eval-field"><label>Student</label><div class="field-value">${student.full_name}</div></div>
+          <div class="eval-field"><label>N-Number</label><div class="field-value">${student.n_number}</div></div>
+          <div class="eval-field"><label>Year</label><div class="field-value">${student.year_level}</div></div>
+          <div class="eval-field"><label>AOC</label><div class="field-value">${student.aoc || '—'}</div></div>
+        </div>
+
+        <div class="rte-label" style="margin-top:18px;">Courses on this contract</div>
+        <div style="font-size:12px;color:#888;margin:2px 0 10px;">Click a course to read its evaluation in a side panel — without leaving this page.</div>
+        ${courseRows || '<div style="color:#888;">No current-term courses on this contract.</div>'}
+
+        <div class="rte-label" style="margin-top:18px;">Contract Designation</div>
+        <div style="font-size:12px;color:#888;margin:2px 0 8px;">Can be submitted independently of the course evaluations.</div>
+        <select class="designation-select" id="contractDesig" ${contract.certified ? 'disabled' : ''} style="max-width:320px;">
+          <option value="">— Select —</option>
+          <option value="sat"   ${contract.designation === 'sat' ? 'selected' : ''}>Satisfactory (Sat)</option>
+          <option value="unsat" ${contract.designation === 'unsat' ? 'selected' : ''}>Unsatisfactory (Unsat)</option>
+        </select>
+
+        <div class="btn-group" style="margin-top:16px;">
+          ${contract.certified
+            ? '<button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>'
+            : `<button class="btn btn-success" onclick="certifyContract('${student.id}')">Certify &amp; push to Banner</button>`}
+        </div>
+      </div>
+    </div>`;
+}
+
+function certifyContract(studentId) {
+  const desig = document.getElementById('contractDesig')?.value;
+  if (!desig) { showToast('Select a contract designation (Sat/Unsat) first.', '#dc3545'); return; }
+  if (!confirm('Certify this contract and push the contract designation to Banner? It will be locked.')) return;
+  saveContract(studentId, { designation: desig, certified: true, certified_at: new Date().toISOString(), banner_pushed: true, banner_pushed_at: new Date().toISOString() });
+  bannerPushToast('Contract designation');
+  renderMain();
+}
+
+// ── Slide-over evaluation panel (read an eval without leaving the contract page) ──
+async function openEvalPanel(studentId, courseId) {
+  const panel = document.getElementById('evalPanel');
+  const back = document.getElementById('evalPanelBackdrop');
+  const body = document.getElementById('evalPanelBody');
+  const title = document.getElementById('evalPanelTitle');
+  const course = USE_DEMO ? demoData.courses.find(c => c.id === courseId) : null;
+  const student = USE_DEMO ? demoData.students.find(s => s.id === studentId) : null;
+  title.textContent = course ? `${course.code}: ${course.name}` : 'Evaluation';
+  body.innerHTML = '<div class="loading"><div class="spinner"></div>Loading…</div>';
+  back.classList.add('open'); panel.classList.add('open');
+  try {
+    const ev = await Data.getEvaluation(studentId, courseId);
+    const faculty = USE_DEMO ? demoData.profiles.find(p => p.id === course?.faculty_id) : null;
+    let privateNarr = '';
+    if (ev?.id) privateNarr = await Data.getPrivateNote(ev.id);
+    Data.logAccess('view_evaluation', 'evaluation', ev?.id, studentId);
+    const desig = ev?.designation || '';
+    body.innerHTML = `
+      <div style="font-size:13px;color:#888;margin-bottom:10px;">${student?.full_name || ''} · ${faculty?.full_name || ''} · ${course?.semester} ${course?.year}</div>
+      <div class="rte-label" style="margin-top:4px;">Course Designation</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
+        <select class="designation-select" id="panelDesig" style="max-width:240px;">
+          <option value="">— Select —</option>
+          <option value="strong_sat"   ${desig === 'strong_sat' ? 'selected' : ''}>Strong Sat (SS)</option>
+          <option value="sat"          ${desig === 'sat' ? 'selected' : ''}>Sat (S)</option>
+          <option value="marginal_sat" ${desig === 'marginal_sat' ? 'selected' : ''}>Marginal Sat (MS)</option>
+          <option value="unsat"        ${desig === 'unsat' ? 'selected' : ''}>Unsat (U)</option>
+          <option value="pass"         ${desig === 'pass' ? 'selected' : ''}>Pass</option>
+          <option value="fail"         ${desig === 'fail' ? 'selected' : ''}>Fail (F)</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="savePanelDesignation('${studentId}','${courseId}')">Save &amp; push to Banner</button>
+      </div>
+      <div class="rte-label" style="margin-top:16px;">External Narrative Evaluation</div>
+      <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev?.public_narrative || '<span style="color:#888;">Not written yet.</span>'}</div></div>
+      ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Internal Narrative Evaluation</div>
+      <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div></div>` : ''}
+      <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="openFullEvalFromPanel('${studentId}','${courseId}')">Open full evaluation ›</button></div>`;
+  } catch (e) {
+    body.innerHTML = `<div style="color:#c00;">Error: ${e.message}</div>`;
+  }
+}
+function closeEvalPanel() {
+  document.getElementById('evalPanel')?.classList.remove('open');
+  document.getElementById('evalPanelBackdrop')?.classList.remove('open');
+}
+async function savePanelDesignation(studentId, courseId) {
+  const desig = document.getElementById('panelDesig')?.value || '';
+  const ev = await Data.getEvaluation(studentId, courseId);
+  const facultyId = USE_DEMO ? demoData.courses.find(c => c.id === courseId)?.faculty_id : null;
+  await Data.saveEvaluation(studentId, courseId, {
+    designation: desig,
+    publicNarrative: ev?.public_narrative || '',
+    status: ev?.status || 'draft',
+  }, facultyId);
+  bannerPushToast('Course designation');
+  if (appState.view === 'contract') renderMain();
+}
+function openFullEvalFromPanel(studentId, courseId) {
+  closeEvalPanel();
+  destroyEditors();
+  appState.selectedStudentId = studentId;
+  appState.selectedCourseId = courseId;
+  appState.view = 'evaluation';
+  renderMain();
 }
 
 
