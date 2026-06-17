@@ -434,6 +434,9 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   <div class="evalpanel-body" id="evalPanelBody"></div>
 </div>
 
+<!-- Real anonymized Argos enrollment data (Fall 2024 – Spring 2026), used to build the demo dataset -->
+<script src="data/anon-data.js"></script>
+
 <script>
 // ═══════════════════════════════════════════════════════════════════
 // SECTION 1: CONFIGURATION
@@ -636,12 +639,81 @@ function augmentDemoData(d) {
   }
 }
 
-function demoLoadData() {
-  // Regenerate fresh each load (too large to round-trip through localStorage).
-  const fresh = JSON.parse(JSON.stringify(DEMO_INITIAL));
-  augmentDemoData(fresh);
-  return fresh;
+// ── Build the demo dataset from the REAL anonymized Argos data ──────────
+// window.ANON_DATA (data/anon-data.js) holds real courses, instructors,
+// designations and contract criteria across 4 terms with anonymized student
+// IDs. We map it to the app's shape; narrative text is generated here
+// (the source data has none). Year level was inferred from the earliest term a
+// student appears in, AOC from their dominant course division.
+function buildDemoData() {
+  const A = window.ANON_DATA;
+  const d = { profiles: [], courses: [], students: [], evaluations: [], privateNotes: {}, accessLog: [], contracts: {} };
+  let seed = 13579;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  const FIRST = ['Emma','Liam','Olivia','Noah','Ava','Ethan','Sophia','Mason','Isabella','Lucas','Mia','Aiden','Harper','Elijah','Charlotte','James','Amelia','Benjamin','Evelyn','Henry','Abigail','Sebastian','Ella','Jack','Scarlett','Owen','Grace','Leo','Chloe','Daniel','Layla','Julian','Riley','Gabriel','Nora','Wyatt','Zoe','Caleb','Hazel','Isaac','Aria','Nathan','Lily','Levi','Aurora','Dylan','Maya','Adrian','Sofia','Eli','Camila','Diego','Valentina','Mateo','Luna','Naomi','Omar','Jade','Kai','Priya','Wei','Yuki','Tariq','Ingrid','Freya'];
+  const LAST = ['Adler','Bishop','Calderon','Donovan','Esposito','Frost','Gallagher','Holt','Iqbal','Jennings','Keller','Lambert','Mercer','Novak','Ortega','Pruitt','Quinn','Ramos','Sullivan','Tran','Underwood','Vega','Whitaker','Xiong','Yamamoto','Zelaya','Brennan','Cortez','Delgado','Ellison','Fontaine','Greer','Hammond','Ishikawa','Jovanovic','Kowalski','Lindqvist','Moreau','Nakashima','Okonkwo'];
+  const SN = ['engaged thoughtfully with the material','produced strong, well-argued work','was a reliable and generous contributor','showed excellent analytical skills','demonstrated genuine curiosity and rigor','wrote with notable clarity and insight'];
+  const IM = ['should continue developing quantitative skills','could engage more deeply with counter-arguments','would benefit from more consistent participation','should work on time management','needs to strengthen written argumentation','could push toward a sharper, more contestable thesis'];
+  const reformat = nm => { const p = (nm || '').split(',').map(s => s.trim()); if (p.length < 2) return nm || '—'; const first = (p[1] || '').split(' ')[0]; return `${first} ${p[0]}`.trim(); };
+  const termDate = c => `${c.year}-${c.semester === 'Fall' ? '12-15' : '05-08'}T10:00:00`;
+
+  // Faculty (real instructors)
+  const facById = {};
+  for (const f of A.faculty) {
+    const prof = { id: f.id, email: f.id + '@ncf.edu', full_name: reformat(f.name), role: 'faculty', is_advisor: A.advisorFac.includes(f.id), division: f.div || '', login: false };
+    d.profiles.push(prof); facById[f.id] = prof;
+  }
+  A.advisorFac.slice(0, 6).forEach(fid => { if (facById[fid]) facById[fid].login = true; });
+  d.profiles.push({ id: 'r1', email: 'registrar@ncf.edu', full_name: 'Registrar Office', role: 'registrar', is_advisor: false, division: "Registrar's Office", login: true });
+  d.profiles.push({ id: 'po', email: 'provost@ncf.edu', full_name: 'Provost Office', role: 'po_office', is_advisor: false, division: "Provost's Office", login: true });
+  d.profiles.push({ id: 'ad', email: 'admin@ncf.edu', full_name: 'Admin User', role: 'admin', is_advisor: false, division: 'Academic Affairs', login: true });
+
+  // Courses (real)
+  const courseById = {};
+  for (const c of A.courses) {
+    const course = { id: c.id, code: 'CRN ' + c.crn, name: c.title, semester: c.sem, year: c.year, faculty_id: c.faculty_id, division: c.div || '', description: `${c.title}${c.div ? ' — ' + c.div : ''}.`, is_isp: false };
+    d.courses.push(course); courseById[c.id] = course;
+  }
+
+  // Students (anonymized IDs → readable fake display names; real year/AOC/advisor)
+  const studByAnon = {};
+  for (const s of A.students) {
+    const stud = { id: s.id, n_number: s.n_number, full_name: `${pick(FIRST)} ${pick(LAST)}`, advisor_id: s.advisor_id, year_level: s.year_level, contracts_completed: Object.keys(s.cc || {}).length, aoc: s.aoc, enrollments: [], attrs: s.attrs || [], contract_criteria: (s.cc && s.cc['Spring 2026']) || '' };
+    d.students.push(stud); studByAnon[s.anon] = stud;
+  }
+
+  // Enrollments → evaluations (real designations; generated narratives)
+  let eseq = 0;
+  for (const e of A.enrollments) {
+    const stud = studByAnon[e.s], course = courseById[e.c];
+    if (!stud || !course) continue;
+    stud.enrollments.push(course.id);
+    const isCurrent = course.semester === 'Spring' && course.year === 2026;
+    // Current term reads as work-in-progress (mix); past terms are submitted.
+    let status = 'submitted';
+    if (isCurrent) { const r = rnd(); status = r < 0.55 ? 'submitted' : (r < 0.82 ? 'draft' : 'none'); }
+    if (status === 'none') continue;  // not started — no eval record
+    eseq++; const id = 'e' + eseq;
+    const submitted = status === 'submitted';
+    const name = stud.full_name;
+    d.evaluations.push({
+      id, student_id: stud.id, course_id: course.id, faculty_id: course.faculty_id,
+      designation: e.d || '',
+      public_narrative: `<p>${name} ${pick(SN)}. To grow further, ${name.split(' ')[0]} ${pick(IM)}.</p>`,
+      status, submitted_at: submitted ? termDate(course) : null, updated_at: termDate(course),
+    });
+    if (submitted && rnd() < 0.4) d.privateNotes[id] = `<p>Privately: ${name.split(' ')[0]} ${pick(IM)}.</p>`;
+  }
+
+  // Two student logins: pick students with current-term enrollments.
+  const spring = d.students.filter(s => s.enrollments.some(cid => { const c = courseById[cid]; return c && c.semester === 'Spring' && c.year === 2026; }));
+  [spring[0], spring[1]].forEach((s, i) => { if (!s) return; d.profiles.push({ id: 'u_' + s.id, email: `student${i + 1}@ncf.edu`, full_name: s.full_name, role: 'student', is_advisor: false, division: s.aoc, student_id: s.id, login: true }); });
+
+  return d;
 }
+
+function demoLoadData() { return buildDemoData(); }
 function demoSaveData(d) {
   // Session edits already mutate the in-memory demoData; persistence is best-effort.
   try { localStorage.setItem('ncf_eval_v6_small', '1'); } catch (e) { /* ignore quota */ }
@@ -1041,7 +1113,8 @@ function showLogin() {
   if (USE_DEMO) {
     document.getElementById('loginDemo').style.display = 'block';
     const sel = document.getElementById('demoUserSelect');
-    sel.innerHTML = demoData.profiles.map(p =>
+    // Only curated login accounts (a few real faculty advisors, staff, students).
+    sel.innerHTML = demoData.profiles.filter(p => p.login).map(p =>
       `<option value="${p.id}">${p.full_name} — ${roleLabel(p.role)}${p.is_advisor ? ' / advisor' : ''} (${p.division})</option>`
     ).join('');
   } else {
@@ -1512,6 +1585,7 @@ async function renderEvaluationForm(mc) {
                 <option value="unsat"        ${designation==='unsat'        ? 'selected':''}>Unsat (U)</option>
                 <option value="pass"         ${designation==='pass'         ? 'selected':''}>Pass</option>
                 <option value="fail"         ${designation==='fail'         ? 'selected':''}>Fail (F)</option>
+                <option value="inc"          ${designation==='inc'          ? 'selected':''}>Incomplete (INC)</option>
               </select>
             </div>
           </div>
@@ -2177,6 +2251,7 @@ async function openEvalPanel(studentId, courseId) {
           <option value="unsat"        ${desig === 'unsat' ? 'selected' : ''}>Unsat (U)</option>
           <option value="pass"         ${desig === 'pass' ? 'selected' : ''}>Pass</option>
           <option value="fail"         ${desig === 'fail' ? 'selected' : ''}>Fail (F)</option>
+          <option value="inc"          ${desig === 'inc' ? 'selected' : ''}>Incomplete (INC)</option>
         </select>
         <button class="btn btn-primary btn-sm" onclick="savePanelDesignation('${studentId}','${courseId}')">Save &amp; push to Banner</button>
       </div>
@@ -2604,6 +2679,7 @@ function getDesignationBadge(d) {
     unsat:        ['U',    'desig-unsat'],
     pass:         ['Pass', 'desig-pass'],
     fail:         ['F',    'desig-fnc'],
+    inc:          ['INC',  'desig-inc'],
   };
   const [label, cls] = map[d] || ['—', ''];
   return cls ? `<span class="desig-badge ${cls}">${label}</span>` : label;
