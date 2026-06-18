@@ -202,6 +202,18 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .advisee-table tr.senior td { background: #fff8e1; }
 .advisee-table tr.clickable:hover td { background: #f0f4ff; }
 .senior-pill { background: #ffe082; color: #7a5b00; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
+/* SES-style roster / contract tables */
+.ses-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ses-table th { background: #cfe0f0; color: #1a3a5c; font-weight: 600; padding: 8px 9px; border: 1px solid #b9cee2; text-align: left; white-space: nowrap; }
+.ses-table td { padding: 7px 9px; border: 1px solid #e3e9f0; }
+.ses-table tbody tr:nth-child(even) td { background: #f6f9fc; }
+.ses-table tr.senior td { background: #fff8d6 !important; }
+.ses-table tr.clickable { cursor: pointer; }
+.ses-table tr.clickable:hover td { background: #eaf2fb !important; }
+.ses-note { background: #fff8d6; border: 1px solid #f0e3a0; color: #7a6a1a; font-size: 12px; padding: 7px 10px; border-radius: 4px; margin: 8px 0; }
+.ses-info { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+.ses-info th { background: #cfe0f0; color: #1a3a5c; font-weight: 600; padding: 8px; border: 1px solid #b9cee2; }
+.ses-info td { padding: 8px; border: 1px solid #e3e9f0; text-align: center; }
 /* Contract / Banner */
 .banner-ok { background: #d4edda; color: #155724; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 10px; }
 .contract-course { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid #eef; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
@@ -706,6 +718,22 @@ function buildDemoData() {
     if (submitted && rnd() < 0.4) d.privateNotes[id] = `<p>Privately: ${name.split(' ')[0]} ${pick(IM)}.</p>`;
   }
 
+  // Synthetic ISP (January 2026 interterm) — the Argos data has no Jan term.
+  const ISP_TOPICS = ['Field Research in Sarasota Bay','Digital Humanities Archive','Independent Reading in Phenomenology','Community Health Survey','Generative Art Studio','Oral History Project'];
+  const ispCourses = [];
+  for (let i = 0; i < ISP_TOPICS.length; i++) {
+    const id = 'isp' + i;
+    const c = { id, code: 'ISP 290', name: 'ISP: ' + ISP_TOPICS[i], semester: 'January', year: 2026, faculty_id: A.advisorFac[i % A.advisorFac.length], division: 'Interdisciplinary', description: 'January Independent Study Project.', is_isp: true };
+    d.courses.push(c); courseById[id] = c; ispCourses.push(c);
+  }
+  for (const stud of d.students) {
+    if (rnd() < 0.16) {
+      const c = pick(ispCourses); stud.enrollments.push(c.id);
+      eseq++; const id = 'e' + eseq; const name = stud.full_name;
+      d.evaluations.push({ id, student_id: stud.id, course_id: c.id, faculty_id: c.faculty_id, designation: pick(['strong_sat','sat','pass']), public_narrative: `<p>${name} ${pick(SN)}.</p>`, status: 'submitted', submitted_at: '2026-01-26T10:00:00', updated_at: '2026-01-26T10:00:00' });
+    }
+  }
+
   // Two student logins: pick students with current-term enrollments.
   const spring = d.students.filter(s => s.enrollments.some(cid => { const c = courseById[cid]; return c && c.semester === 'Spring' && c.year === 2026; }));
   [spring[0], spring[1]].forEach((s, i) => { if (!s) return; d.profiles.push({ id: 'u_' + s.id, email: `student${i + 1}@ncf.edu`, full_name: s.full_name, role: 'student', is_advisor: false, division: s.aoc, student_id: s.id, login: true }); });
@@ -720,6 +748,20 @@ function demoSaveData(d) {
 }
 
 let demoData = demoLoadData();
+// Fast course lookup for the SES-style roster/contract derivations.
+let _courseById = {};
+function rebuildCourseIndex() { _courseById = {}; demoData.courses.forEach(c => { _courseById[c.id] = c; }); }
+rebuildCourseIndex();
+
+// ── SES-style derived fields (not in the source data) ──
+function isCurrentTermCourse(courseId) { const c = _courseById[courseId]; return !!c && c.semester === 'Spring' && c.year === 2026; }
+function studentCurrentEvals(sid) { return demoData.evaluations.filter(e => e.student_id === sid && isCurrentTermCourse(e.course_id)); }
+function studentIsProbation(sid) { return demoData.evaluations.some(e => e.student_id === sid && e.designation === 'unsat'); }
+function studentStanding(sid) { return studentIsProbation(sid) ? 'Academic Probation' : 'Good Standing'; }
+function gradDateFor(year_level) { const y = { 'First Year': 2029, 'Second Year': 2028, 'Third Year': 2027, 'Fourth Year': 2026 }[year_level] || 2028; return '21-MAY-' + String(y).slice(2); }
+function allEvalsSubmitted(sid) { const ev = studentCurrentEvals(sid); return ev.length > 0 && ev.every(e => e.status === 'submitted'); }
+function studentHasISP(sid) { return demoData.evaluations.some(e => e.student_id === sid && _courseById[e.course_id]?.semester === 'January'); }
+const check = ok => ok ? '<span style="color:#1e7e34;font-weight:700;">✓</span>' : '<span style="color:#ccc;">—</span>';
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1164,6 +1206,11 @@ let _autoSaveTimer = null;
 let _isDirty = false;
 let _publicQuill = null;
 let _privateQuill = null;
+let _contractQuill = null;
+
+function designationLabel(d) {
+  return { strong_sat: 'Strong Satisfactory', sat: 'Satisfactory', marginal_sat: 'Marginal Satisfactory', unsat: 'Unsatisfactory', pass: 'Pass', fail: 'Fail', inc: 'Incomplete' }[d] || '—';
+}
 
 function setSaveStatus(state, msg) {
   const el = document.getElementById('saveStatus');
@@ -1202,6 +1249,7 @@ function warnIfDirty() {
 function destroyEditors() {
   _publicQuill = null;
   _privateQuill = null;
+  _contractQuill = null;
   clearTimeout(_autoSaveTimer);
   _isDirty = false;
   setSaveStatus('', '');
@@ -2107,7 +2155,7 @@ function bannerPushToast(what) {
   Data.logAccess('banner_push', 'banner', null, appState.selectedStudentId);
 }
 
-// ── My Advisees: list page (seniors highlighted in yellow) ──
+// ── Contract Advisees roster (SES-style; seniors highlighted in yellow) ──
 async function renderAdviseesList(mc) {
   mc.innerHTML = '<div class="loading"><div class="spinner"></div>Loading advisees…</div>';
   const u = appState.currentUser;
@@ -2115,30 +2163,44 @@ async function renderAdviseesList(mc) {
     const advisees = await Data.getMyAdvisees(u.id);
     const yrOrder = { 'Fourth Year': 0, 'Third Year': 1, 'Second Year': 2, 'First Year': 3 };
     advisees.sort((a, b) => (yrOrder[a.year_level] ?? 9) - (yrOrder[b.year_level] ?? 9) || a.full_name.localeCompare(b.full_name));
-    const rows = advisees.map(s => {
-      const submitted = USE_DEMO ? demoData.evaluations.filter(e => e.student_id === s.id && e.status === 'submitted').length : 0;
+    const rows = advisees.map((s, i) => {
       const isSenior = s.year_level === 'Fourth Year';
-      const certified = getContract(s.id).certified;
-      return `<tr class="clickable${isSenior ? ' senior' : ''}" onclick="navToAdvisee('${s.id}')">
-        <td>${s.full_name}${isSenior ? ' <span class="senior-pill">Senior</span>' : ''}</td>
+      const contract = getContract(s.id);
+      const standing = studentStanding(s.id);
+      const desig = contract.designation ? (contract.designation === 'sat' ? 'Satisfactory' : 'Unsatisfactory') : '—';
+      return `<tr class="clickable${isSenior ? ' senior' : ''}" onclick="navToContract('${s.id}')">
+        <td>${i + 1}</td>
         <td>${s.n_number}</td>
-        <td>${s.year_level}</td>
-        <td>${s.aoc || '—'}</td>
-        <td>${s.contracts_completed ?? '—'}</td>
-        <td>${submitted} submitted</td>
-        <td>${certified ? '<span class="banner-ok">Certified</span>' : '<span style="color:#888;font-size:12px;">Pending</span>'}</td>
+        <td>${s.full_name}${isSenior ? ' <span class="senior-pill">Senior</span>' : ''}</td>
+        <td>Enrolled</td>
+        <td>${standing}</td>
+        <td>${gradDateFor(s.year_level)}</td>
+        <td>${s.contract_criteria || '—'}</td>
+        <td style="text-align:center;">${check(studentHasISP(s.id))}</td>
+        <td style="text-align:center;">${check(allEvalsSubmitted(s.id))}</td>
+        <td>${desig}</td>
+        <td style="text-align:center;">${check(contract.banner_pushed)}</td>
+        <td style="text-align:center;">${standing === 'Academic Probation' ? '<span title="Academic probation" style="color:#c0392b;font-weight:700;">&#9873;</span>' : ''}</td>
+        <td>${contract.certified ? '<span class="banner-ok">Certified</span>' : '<span style="color:#888;font-size:12px;">Pending</span>'}</td>
       </tr>`;
     }).join('');
     const seniors = advisees.filter(s => s.year_level === 'Fourth Year').length;
     mc.innerHTML = `
       <div class="card">
-        <div class="card-header">My Advisees <span style="font-size:13px;font-weight:400;color:#888;">${advisees.length} total · ${seniors} seniors</span></div>
         <div class="card-body">
-          <div style="font-size:13px;color:#888;margin-bottom:10px;">Seniors are highlighted. Click a student to see their evaluations and certify their contract.</div>
-          <table class="student-table advisee-table">
-            <thead><tr><th>Student</th><th>N-Number</th><th>Year</th><th>AOC</th><th>Contracts</th><th>Evaluations</th><th>Contract</th></tr></thead>
-            <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px;">No advisees assigned.</td></tr>'}</tbody>
-          </table>
+          <h3 style="color:#1a3a5c;margin-bottom:2px;">${u.full_name} — ${CURRENT_TERM} Contract Advisees</h3>
+          <div style="color:#666;font-size:13px;margin-bottom:8px;">${u.division || ''} · ${advisees.length} advisees · ${seniors} seniors</div>
+          <div class="ses-note">Seniors (Fourth Year) are highlighted in yellow. Click a student to open and certify their contract.</div>
+          <div style="overflow-x:auto;">
+            <table class="ses-table">
+              <thead><tr>
+                <th>#</th><th>ID</th><th>Student Name</th><th>Enrollment Status</th><th>Current Academic Standing</th>
+                <th>Expected Grad Date</th><th>Contract Criteria</th><th>ISP Submitted</th><th>All Evals Submitted</th>
+                <th>Designation</th><th>Official (Rolled)</th><th>Flag</th><th>Certification</th>
+              </tr></thead>
+              <tbody>${rows || '<tr><td colspan="13" style="text-align:center;color:#888;padding:20px;">No advisees assigned.</td></tr>'}</tbody>
+            </table>
+          </div>
         </div>
       </div>`;
   } catch (e) {
@@ -2146,77 +2208,120 @@ async function renderAdviseesList(mc) {
   }
 }
 
-// ── Contract certification page ──
+// ── Contract Certification page (SES-style) ──
 function renderContractView(mc) {
   const student = USE_DEMO ? demoData.students.find(s => s.id === appState.selectedStudentId) : null;
   if (!student) { mc.innerHTML = '<div class="loading">Student not found.</div>'; return; }
   const contract = getContract(student.id);
-  const courseIds = USE_DEMO ? (student.enrollments || []) : [];
-  const courses = courseIds.map(cid => demoData.courses.find(c => c.id === cid)).filter(c => c && `${c.semester} ${c.year}` === CURRENT_TERM);
+  const advisor = USE_DEMO ? demoData.profiles.find(p => p.id === student.advisor_id) : null;
+  const courses = (student.enrollments || []).map(cid => _courseById[cid]).filter(c => c && isCurrentTermCourse(c.id));
 
   const courseRows = courses.map(c => {
     const ev = USE_DEMO ? demoData.evaluations.find(e => e.student_id === student.id && e.course_id === c.id) : null;
     const faculty = USE_DEMO ? demoData.profiles.find(p => p.id === c.faculty_id) : null;
-    const statusBadge = ev
-      ? (ev.status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>' : '<span class="status-badge status-draft">Draft</span>')
-      : '<span class="status-badge status-not-started">Not started</span>';
-    return `<div class="contract-course" onclick="openEvalPanel('${student.id}','${c.id}')">
-      <div>
-        <div style="font-weight:600;font-size:14px;">${c.code}: ${c.name}</div>
-        <div style="font-size:12px;color:#888;">${faculty?.full_name || ''} · ${c.semester} ${c.year}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        ${ev ? getDesignationBadge(ev.designation) : ''}
-        ${statusBadge}
-        <span style="color:#4a6cf7;font-size:12px;">Open ›</span>
-      </div>
-    </div>`;
+    const official = !!(ev && ev.status === 'submitted');
+    return `<tr>
+      <td>${(c.code || '').replace('CRN ', '')}</td>
+      <td>${c.name}</td>
+      <td>Course/Seminar/Topics</td>
+      <td>Registered</td>
+      <td>${faculty?.full_name || '—'}</td>
+      <td>Full Term</td>
+      <td>${ev ? designationLabel(ev.designation) : '—'}</td>
+      <td style="text-align:center;">${check(official)}</td>
+      <td style="text-align:center;"><button class="btn btn-outline btn-sm" onclick="openEvalPanel('${student.id}','${c.id}')">Select</button></td>
+    </tr>`;
   }).join('');
 
-  const certifiedBanner = contract.certified ? `
-    <div class="lock-notice">✓ <strong>Contract certified</strong> on ${new Date(contract.certified_at).toLocaleDateString()} — designation: ${contract.designation === 'sat' ? 'Satisfactory' : 'Unsatisfactory'}.${contract.banner_pushed ? ' <span class="banner-ok">Pushed to Banner ✓</span>' : ''}</div>` : '';
-
+  const certified = contract.certified;
   mc.innerHTML = `
     <div style="margin-bottom:12px;">
-      <button class="btn btn-outline btn-sm" onclick="navToAdvisee('${student.id}')">← Back to ${student.full_name.split(' ')[0]}'s evaluations</button>
+      <button class="btn btn-primary btn-sm" onclick="navToAdvisees()">Return to Contract Advisees</button>
+      <button class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="navToAdvisee('${student.id}')">All evaluations (by semester / AOC) ›</button>
     </div>
-    <div class="card">
-      <div class="card-header">Current Contract — ${CURRENT_TERM}</div>
+    <h3 style="color:#1a3a5c;margin-bottom:2px;">Contract Certification</h3>
+    <div style="color:#1a3a5c;font-weight:600;">${student.full_name} (${student.n_number})</div>
+    <div style="color:#666;font-size:13px;margin-bottom:10px;">${CURRENT_TERM}</div>
+
+    <div style="overflow-x:auto;">
+      <table class="ses-info">
+        <thead><tr><th>Enrollment Status</th><th>Contract</th><th>Contract Criteria</th><th>Current Academic Standing</th><th>Expected Graduation Date</th></tr></thead>
+        <tbody><tr><td>Enrolled</td><td>—</td><td>${student.contract_criteria || '—'}</td><td>${studentStanding(student.id)}</td><td>${gradDateFor(student.year_level)}</td></tr></tbody>
+      </table>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="ses-table" style="margin-top:4px;">
+        <thead><tr>
+          <th>CRN</th><th>Title</th><th>Type</th><th>Registration Status</th><th>Instructor</th>
+          <th>Session</th><th>Designation</th><th>Official (Rolled)</th><th>Evaluation</th>
+        </tr></thead>
+        <tbody>${courseRows || '<tr><td colspan="9" style="text-align:center;color:#888;padding:14px;">No current-term courses on this contract.</td></tr>'}</tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
       <div class="card-body">
-        ${certifiedBanner}
-        <div class="eval-header-grid">
-          <div class="eval-field"><label>Student</label><div class="field-value">${student.full_name}</div></div>
-          <div class="eval-field"><label>N-Number</label><div class="field-value">${student.n_number}</div></div>
-          <div class="eval-field"><label>Year</label><div class="field-value">${student.year_level}</div></div>
-          <div class="eval-field"><label>AOC</label><div class="field-value">${student.aoc || '—'}</div></div>
+        <h3 style="color:#1a3a5c;margin-bottom:2px;">Contract Certification</h3>
+        <div style="color:#1a3a5c;font-weight:600;">${student.full_name} (${student.n_number})</div>
+        <div style="color:#666;font-size:13px;margin:2px 0 10px;">${CURRENT_TERM}</div>
+        <ul style="font-size:13px;color:#444;line-height:1.9;margin-left:18px;">
+          <li><em>Advisor:</em> ${advisor?.full_name || '—'}</li>
+          <li><em>Enrollment Status:</em> Enrolled</li>
+          <li><em>Contract Criteria:</em> ${student.contract_criteria || '—'}</li>
+          <li><em>Designation:</em> ${contract.designation ? (contract.designation === 'sat' ? 'Satisfactory' : 'Unsatisfactory') : '—'}</li>
+          <li><em>Completion Deadline:</em> ${gradDateFor(student.year_level)}</li>
+        </ul>
+
+        ${certified ? `<div class="lock-notice">✓ <strong>Certified</strong> on ${new Date(contract.certified_at).toLocaleDateString()}.${contract.banner_pushed ? ' <span class="banner-ok">Pushed to Banner ✓</span>' : ''}</div>` : ''}
+
+        <div class="rte-label private-label" style="margin-top:8px;">Internal Narrative Evaluation</div>
+        <div class="private-notice">A personal communication between the professor and the student. Only the student may share it with external audiences; it is never part of the official academic transcript.</div>
+        <div class="rte-wrapper${certified ? ' readonly' : ''}" style="margin-top:6px;"><div id="contractEditorContainer"></div></div>
+
+        <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <label style="font-size:13px;font-weight:600;">Contract Designation:</label>
+          <select class="designation-select" id="contractDesig" ${certified ? 'disabled' : ''} style="max-width:260px;">
+            <option value="">— Select —</option>
+            <option value="sat"   ${contract.designation === 'sat' ? 'selected' : ''}>Satisfactory (Sat)</option>
+            <option value="unsat" ${contract.designation === 'unsat' ? 'selected' : ''}>Unsatisfactory (Unsat)</option>
+          </select>
         </div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">The contract designation can be certified independently of the course evaluations; both push to Banner.</div>
 
-        <div class="rte-label" style="margin-top:18px;">Courses on this contract</div>
-        <div style="font-size:12px;color:#888;margin:2px 0 10px;">Click a course to read its evaluation in a side panel — without leaving this page.</div>
-        ${courseRows || '<div style="color:#888;">No current-term courses on this contract.</div>'}
-
-        <div class="rte-label" style="margin-top:18px;">Contract Designation</div>
-        <div style="font-size:12px;color:#888;margin:2px 0 8px;">Can be submitted independently of the course evaluations.</div>
-        <select class="designation-select" id="contractDesig" ${contract.certified ? 'disabled' : ''} style="max-width:320px;">
-          <option value="">— Select —</option>
-          <option value="sat"   ${contract.designation === 'sat' ? 'selected' : ''}>Satisfactory (Sat)</option>
-          <option value="unsat" ${contract.designation === 'unsat' ? 'selected' : ''}>Unsatisfactory (Unsat)</option>
-        </select>
-
-        <div class="btn-group" style="margin-top:16px;">
-          ${contract.certified
+        <div class="btn-group" style="margin-top:14px;">
+          ${certified
             ? '<button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>'
-            : `<button class="btn btn-success" onclick="certifyContract('${student.id}')">Certify &amp; push to Banner</button>`}
+            : `<button class="btn btn-secondary" onclick="saveContractNarrative('${student.id}')">Save</button>
+               <button class="btn btn-success" onclick="certifyContract('${student.id}')">Certify &amp; push to Banner</button>`}
         </div>
       </div>
     </div>`;
+
+  setTimeout(() => {
+    _contractQuill = new Quill('#contractEditorContainer', {
+      theme: 'snow',
+      readOnly: certified,
+      placeholder: 'Internal narrative evaluation for this contract…',
+      modules: { toolbar: certified ? false : [['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }], ['clean']] }
+    });
+    setEditorHtml(_contractQuill, contract.internal_narrative || '');
+  }, 50);
+}
+
+function saveContractNarrative(studentId) {
+  const desig = document.getElementById('contractDesig')?.value || '';
+  const narr = _contractQuill ? _contractQuill.root.innerHTML : '';
+  saveContract(studentId, { designation: desig, internal_narrative: narr });
+  showToast('Saved.', '#6c757d');
 }
 
 function certifyContract(studentId) {
   const desig = document.getElementById('contractDesig')?.value;
   if (!desig) { showToast('Select a contract designation (Sat/Unsat) first.', '#dc3545'); return; }
   if (!confirm('Certify this contract and push the contract designation to Banner? It will be locked.')) return;
-  saveContract(studentId, { designation: desig, certified: true, certified_at: new Date().toISOString(), banner_pushed: true, banner_pushed_at: new Date().toISOString() });
+  const narr = _contractQuill ? _contractQuill.root.innerHTML : '';
+  saveContract(studentId, { designation: desig, internal_narrative: narr, certified: true, certified_at: new Date().toISOString(), banner_pushed: true, banner_pushed_at: new Date().toISOString() });
   bannerPushToast('Contract designation');
   renderMain();
 }
