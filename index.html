@@ -203,9 +203,9 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .advisee-table tr.clickable:hover td { background: #f0f4ff; }
 .senior-pill { background: #ffe082; color: #7a5b00; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
 /* SES-style roster / contract tables */
-.ses-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.ses-table th { background: #cfe0f0; color: #1a3a5c; font-weight: 600; padding: 8px 9px; border: 1px solid #b9cee2; text-align: left; white-space: nowrap; }
-.ses-table td { padding: 7px 9px; border: 1px solid #e3e9f0; }
+.ses-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
+.ses-table th { background: #cfe0f0; color: #1a3a5c; font-weight: 600; padding: 6px 6px; border: 1px solid #b9cee2; text-align: left; white-space: normal; vertical-align: bottom; line-height: 1.2; }
+.ses-table td { padding: 5px 6px; border: 1px solid #e3e9f0; vertical-align: middle; }
 .ses-table tbody tr:nth-child(even) td { background: #f6f9fc; }
 .ses-table tr.senior td { background: #fff8d6 !important; }
 .ses-table tr.clickable { cursor: pointer; }
@@ -2194,9 +2194,9 @@ async function renderAdviseesList(mc) {
           <div style="overflow-x:auto;">
             <table class="ses-table">
               <thead><tr>
-                <th>#</th><th>ID</th><th>Student Name</th><th>Enrollment Status</th><th>Current Academic Standing</th>
-                <th>Expected Grad Date</th><th>Contract Criteria</th><th>ISP Submitted</th><th>All Evals Submitted</th>
-                <th>Designation</th><th>Official (Rolled)</th><th>Flag</th><th>Certification</th>
+                <th>#</th><th>ID</th><th>Student Name</th><th>Enroll.</th><th>Academic Standing</th>
+                <th>Grad Date</th><th>Contract Criteria</th><th>ISP</th><th>All Evals</th>
+                <th>Designation</th><th>Official (Rolled)</th><th>Flag</th><th>Cert.</th>
               </tr></thead>
               <tbody>${rows || '<tr><td colspan="13" style="text-align:center;color:#888;padding:20px;">No advisees assigned.</td></tr>'}</tbody>
             </table>
