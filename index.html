@@ -350,7 +350,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 ═══════════════════════════════════════════════════════════ -->
 <div id="loginScreen" class="login-screen" style="display:none;">
   <div class="login-card">
-    <img src="assets/NCF Logo Horiz BLACK copy.jpg" alt="New College of Florida" class="login-logo">
+    <img src="assets/logo4winds.png" alt="New College of Florida" class="login-logo">
     <div class="login-title">Narrative Evaluations</div>
     <div class="login-subtitle">Sign in with your NCF credentials</div>
 
@@ -389,7 +389,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   <div class="topbar">
     <div class="topbar-left">
       <div class="topbar-logo">
-        <img src="assets/NCF Logo Horiz BLACK REV copy.png" alt="New College of Florida">
+        <img src="assets/logo4winds-white.png" alt="New College of Florida">
         <div class="logo-divider"></div>
         <span class="logo-text">Narrative Evaluations</span>
       </div>
@@ -1223,7 +1223,7 @@ async function renderSidebar() {
 
   // ── Student: read-only view of their own evaluations, grouped by semester ──
   if (u.role === 'student') {
-    html += '<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">My Evaluations</div>';
+    html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">My Evaluations</div>';
     try {
       const items = await Data.getStudentCoursesWithEvals(u.student_id);
       if (items.length === 0) {
@@ -1255,7 +1255,7 @@ async function renderSidebar() {
       const allCourses = await Data.getMyCourses(u.id);
       // Default view = the CURRENT semester only. Older terms live in Browse.
       const courses = allCourses.filter(c => `${c.semester} ${c.year}` === CURRENT_TERM);
-      html += `<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">${CURRENT_TERM}</div>`;
+      html += `<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">${CURRENT_TERM}</div>`;
       if (courses.length === 0) {
         html += '<div style="padding:20px;color:#888;font-size:13px;">No courses assigned this semester.</div>';
       } else {
@@ -1279,7 +1279,7 @@ async function renderSidebar() {
         }
       }
     } catch(e) {
-      html += '<div class="sidebar-header"><img src="assets/NCF Shield RGB_no color copy.png" alt="">My Courses</div>';
+      html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">My Courses</div>';
       html += '<div style="padding:12px;color:#c00;font-size:12px;">Error loading courses.</div>';
     }
     const browseActive = appState.view === 'browse' ? ' active' : '';
@@ -1290,7 +1290,7 @@ async function renderSidebar() {
   }
 
   if (u.is_advisor || u.role === 'admin') {
-    html += '<div class="sidebar-header" style="margin-top:8px;"><img src="assets/NCF Shield RGB_no color copy.png" alt="">Advising</div>';
+    html += '<div class="sidebar-header" style="margin-top:8px;"><img src="assets/logo4winds.png" alt="">Advising</div>';
     let count = '';
     try { count = `${(await Data.getMyAdvisees(u.id)).length} advisees`; } catch(e) { count = ''; }
     const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student' || appState.view === 'contract') ? ' active' : '';
@@ -1301,7 +1301,7 @@ async function renderSidebar() {
   }
 
   if (canViewAll) {
-    html += '<div class="sidebar-header" style="margin-top:8px;"><img src="assets/NCF Shield RGB_no color copy.png" alt="">Administration</div>';
+    html += '<div class="sidebar-header" style="margin-top:8px;"><img src="assets/logo4winds.png" alt="">Administration</div>';
     const regActive = appState.view === 'registrar' ? ' active' : '';
     const logActive = appState.view === 'access-log' ? ' active' : '';
     html += `<div class="sidebar-item${regActive}" onclick="navToRegistrar()">
