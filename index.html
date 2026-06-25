@@ -214,6 +214,21 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .ses-info { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
 .ses-info th { background: #cfe0f0; color: #1a3a5c; font-weight: 600; padding: 8px; border: 1px solid #b9cee2; }
 .ses-info td { padding: 8px; border: 1px solid #e3e9f0; text-align: center; }
+/* Advisor "all evaluations" master-detail (terms list + collapsible tiles) */
+.adv-split { display: flex; gap: 16px; align-items: flex-start; }
+.adv-terms { width: 200px; flex: 0 0 200px; background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; position: sticky; top: 72px; }
+.adv-term { padding: 8px 10px; border-radius: 7px; cursor: pointer; border-left: 3px solid transparent; }
+.adv-term:hover { background: #f0f4ff; }
+.adv-term.active { background: #eaf2fb; border-left-color: #4a6cf7; }
+.adv-pane { flex: 1; min-width: 0; }
+.adv-tile { background: #fff; border: 1px solid #e8e8e8; border-radius: 9px; margin-bottom: 10px; overflow: hidden; }
+.adv-tile.open { border-color: #4a6cf7; }
+.adv-tile-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; }
+.adv-tile-head:hover { background: #f7f9ff; }
+.adv-tile-body { padding: 0 14px 14px; }
+.adv-caret { color: #4a6cf7; transition: transform .15s; display: inline-block; }
+.adv-tile.open .adv-caret { transform: rotate(90deg); }
+@media (max-width: 760px) { .adv-split { flex-direction: column; } .adv-terms { width: 100%; flex-basis: auto; position: static; } }
 /* Contract / Banner */
 .banner-ok { background: #d4edda; color: #155724; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 10px; }
 .contract-course { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid #eef; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
@@ -1657,7 +1672,8 @@ async function renderEvaluationForm(mc) {
             ${locked
               ? `<button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
               : `<button class="btn btn-secondary" onclick="performSave('draft', true)">Save Draft</button>
-                 <button class="btn btn-success" onclick="confirmSubmit()">Submit Evaluation</button>
+                 <button class="btn btn-primary" onclick="submitDesignationOnly()">Submit Designation only</button>
+                 <button class="btn btn-success" onclick="submitNarrativeOnly()">Submit Narrative only</button>
                  <button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
             }
           </div>
@@ -1716,13 +1732,13 @@ async function renderEvaluationForm(mc) {
   }
 }
 
-async function performSave(status, showMsg) {
+async function performSave(status, showMsg, opts = {}) {
   if (!_publicQuill) return;
   const designation    = document.getElementById('designationSelect')?.value || '';
   const publicNarr     = _publicQuill.root.innerHTML;
   const privateNarr    = _privateQuill ? _privateQuill.root.innerHTML : undefined;
 
-  if (status === 'submitted' && !designation) {
+  if (status === 'submitted' && opts.requireDesignation !== false && !designation) {
     showToast('Please select a course designation before submitting.', '#dc3545');
     return;
   }
@@ -1764,6 +1780,23 @@ function confirmSubmit() {
   }
 }
 
+// Submit ONLY the course designation (independent of the narrative) → push to Banner.
+async function submitDesignationOnly() {
+  const designation = document.getElementById('designationSelect')?.value || '';
+  if (!designation) { showToast('Select a course designation first.', '#dc3545'); return; }
+  await performSave(appState.currentEvalStatus || 'draft', false, { requireDesignation: false });
+  bannerPushToast('Course designation');
+}
+
+// Submit ONLY the narrative evaluation (no designation required) → official record, locked.
+async function submitNarrativeOnly() {
+  if (!_publicQuill) return;
+  const publicNarr = _publicQuill.root.innerHTML;
+  if (!publicNarr.replace(/<[^>]*>|&nbsp;|\s/g, '').length) { showToast('Write the narrative before submitting it.', '#dc3545'); return; }
+  if (!confirm('Submit the narrative evaluation? It becomes part of the official academic record and will be locked.')) return;
+  await performSave('submitted', true, { requireDesignation: false });
+}
+
 function printEvaluation() {
   window.print();
 }
@@ -1790,50 +1823,14 @@ async function renderAdvisorStudentView(mc) {
       const course   = USE_DEMO ? demoData.courses.find(c => c.id === courseId) : null;
       const faculty  = USE_DEMO ? demoData.profiles.find(p => p.id === course?.faculty_id) : null;
       const ev       = USE_DEMO ? demoData.evaluations.find(e => e.student_id === student.id && e.course_id === courseId) : null;
-
-      let evalContent = '';
-      if (ev && ev.status === 'submitted') {
-        // Advisors see the Internal Narrative Evaluation too (shared faculty/student/advisor).
-        const privateNarr = await Data.getPrivateNote(ev.id);
-        evalContent = `
-          <div style="margin-top:12px;">
-            <div style="margin-bottom:8px;">
-              <strong>Designation:</strong> ${getDesignationBadge(ev.designation)}
-              &nbsp;&nbsp;
-              <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${new Date(ev.submitted_at).toLocaleDateString()}</span>
-            </div>
-            <div class="rte-label">External Narrative Evaluation</div>
-            <div class="rte-wrapper readonly" style="margin-top:6px;">
-              <div style="padding:14px;font-size:14px;line-height:1.6;">${ev.public_narrative}</div>
-            </div>
-            ${privateNarr ? `
-            <div class="rte-label private-label" style="margin-top:12px;">Internal Narrative Evaluation</div>
-            <div class="private-notice">Shared with you (advisor), the student, and the course faculty. Not part of the public record.</div>
-            <div class="rte-wrapper readonly" style="margin-top:6px;">
-              <div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div>
-            </div>` : ''}
-          </div>`;
-      } else if (ev && ev.status === 'draft') {
-        evalContent = '<div style="padding:12px;color:#856404;font-style:italic;background:#fff8e1;border-radius:6px;margin-top:8px;">Evaluation in progress — not yet submitted.</div>';
-      } else {
-        evalContent = '<div style="padding:12px;color:#888;font-style:italic;">No evaluation submitted yet.</div>';
-      }
-
-      if (ev && ev.status === 'submitted' && course) submittedRows.push({ course, ev });
-
-      const termKey = course ? `${course.semester} ${course.year}` : 'Other';
-      const cardHtml = `
-        <div class="card" id="evalcard-${course?.id}">
-          <div class="card-header">
-            <span>${course?.code}: ${course?.name}</span>
-            <span style="font-weight:400;font-size:13px;color:#888;">${course?.semester} ${course?.year} · ${faculty?.full_name || ''}</span>
-          </div>
-          <div class="card-body">
-            <div class="course-desc-box"><strong>Course Description:</strong> ${course?.description || ''}</div>
-            ${evalContent}
-          </div>
-        </div>`;
-      items.push({ termKey, division: course?.division || '', facultyName: faculty?.full_name || '', cardHtml });
+      let privateNarr = '';
+      // Advisors see the Internal Narrative Evaluation too (shared faculty/student/advisor).
+      if (ev && ev.status === 'submitted') { privateNarr = await Data.getPrivateNote(ev.id); if (course) submittedRows.push({ course, ev }); }
+      items.push({
+        termKey: course ? `${course.semester} ${course.year}` : 'Other',
+        division: course?.division || '', facultyName: faculty?.full_name || '',
+        course, ev, privateNarr,
+      });
     }
 
     window._advisorItems = items;
@@ -1847,6 +1844,13 @@ async function renderAdvisorStudentView(mc) {
     const opt = (arr, label, cur) => `<option value="">${label}</option>` + arr.map(v => `<option value="${v}"${v === cur ? ' selected' : ''}>${v}</option>`).join('');
     const advisorName = USE_DEMO ? (demoData.profiles.find(p => p.id === student.advisor_id)?.full_name || '—') : '—';
 
+    const termCount = {}; items.forEach(i => termCount[i.termKey] = (termCount[i.termKey] || 0) + 1);
+    if (!(appState.advisorTerm && terms.includes(appState.advisorTerm))) appState.advisorTerm = terms[0] || '';
+    const termList = terms.map(t => `<div class="adv-term${t === appState.advisorTerm ? ' active' : ''}" data-term="${t}" onclick="selectAdvisorTerm('${t}')">
+        <div style="font-weight:600;font-size:13px;">${t}</div>
+        <div style="font-size:11px;color:#888;">${termCount[t]} course${termCount[t] !== 1 ? 's' : ''}</div>
+      </div>`).join('');
+
     mc.innerHTML = `
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
@@ -1858,47 +1862,90 @@ async function renderAdvisorStudentView(mc) {
             </div>
             <button class="btn btn-primary btn-sm" onclick="navToContract('${student.id}')">Current Contract / Certify ›</button>
           </div>
-          <div class="filter-bar" style="margin-top:14px;">
-            <div class="filter-group"><label>Semester</label>
-              <select class="filter-select" id="aSem" onchange="renderAdvisorGroups()">${opt(terms, 'All semesters', defSem)}</select></div>
-            <div class="filter-group"><label>Area</label>
-              <select class="filter-select" id="aArea" onchange="renderAdvisorGroups()">${opt(areas, 'All areas', '')}</select></div>
-            <div class="filter-group"><label>Faculty</label>
-              <select class="filter-select" id="aProf" onchange="renderAdvisorGroups()">${opt(profs, 'All faculty', '')}</select></div>
-          </div>
         </div>
       </div>
       ${window._advisorHighlights}
-      <div id="advisorGroups"></div>`;
-    renderAdvisorGroups();
+      <div class="adv-split">
+        <div class="adv-terms">
+          <div style="font-size:11px;font-weight:700;color:#1a3a5c;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Semesters</div>
+          ${termList || '<div style="color:#888;font-size:12px;">None</div>'}
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px;">
+            <select class="filter-select" id="aArea" onchange="renderAdvisorTermPane()">${opt(areas, 'All areas', '')}</select>
+            <select class="filter-select" id="aProf" onchange="renderAdvisorTermPane()">${opt(profs, 'All faculty', '')}</select>
+          </div>
+        </div>
+        <div class="adv-pane" id="advisorTermPane"></div>
+      </div>`;
+    renderAdvisorTermPane();
   } catch(e) {
     mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error: ${e.message}</div></div>`;
   }
 }
 
-// Renders the advisee's evaluation cards, grouped by term, applying the
-// Semester / Area / Faculty filters from the advisor view's filter bar.
-function renderAdvisorGroups() {
+// Click a semester on the left → show that term's evaluations on the right.
+function selectAdvisorTerm(term) {
+  appState.advisorTerm = term;
+  document.querySelectorAll('.adv-term').forEach(el => el.classList.toggle('active', el.dataset.term === term));
+  renderAdvisorTermPane();
+}
+
+// Right pane: the selected term's evaluations as compact, clickable tiles.
+function renderAdvisorTermPane() {
   const items = window._advisorItems || [];
-  const sem  = document.getElementById('aSem')?.value  || '';
+  const term = appState.advisorTerm;
   const area = document.getElementById('aArea')?.value || '';
   const prof = document.getElementById('aProf')?.value || '';
-  const container = document.getElementById('advisorGroups');
-  if (!container) return;
-  const filtered = items.filter(i =>
-    (!sem || i.termKey === sem) && (!area || i.division === area) && (!prof || i.facultyName === prof));
-  if (!filtered.length) {
-    container.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;color:#888;padding:30px;">No evaluations match these filters.</div></div>';
-    return;
-  }
-  const groups = {};
-  for (const it of filtered) (groups[it.termKey] = groups[it.termKey] || []).push(it.cardHtml);
-  let html = '';
-  for (const term of Object.keys(groups).sort(semesterSortDesc)) {
-    html += `<div class="term-divider">${term}</div>`;
-    html += groups[term].join('');
-  }
-  container.innerHTML = html;
+  const pane = document.getElementById('advisorTermPane');
+  if (!pane) return;
+  const list = items.filter(i => i.termKey === term && (!area || i.division === area) && (!prof || i.facultyName === prof));
+  if (!list.length) { pane.innerHTML = '<div style="color:#888;padding:24px;text-align:center;">No evaluations for this selection.</div>'; return; }
+  pane.innerHTML = `<div class="term-divider">${term}</div>` + list.map(advisorTile).join('');
+}
+
+function advisorTile(i) {
+  const ev = i.ev, c = i.course;
+  const desig = ev ? getDesignationBadge(ev.designation) : '';
+  const status = ev
+    ? (ev.status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>' : '<span class="status-badge status-draft">Draft</span>')
+    : '<span class="status-badge status-not-started">Not started</span>';
+  return `
+    <div class="adv-tile" id="advtile-${c?.id}">
+      <div class="adv-tile-head" onclick="toggleAdvisorEval('${c?.id}')">
+        <div style="min-width:0;">
+          <div style="font-weight:600;font-size:13.5px;">${c?.code}: ${c?.name}</div>
+          <div style="font-size:12px;color:#888;">${i.facultyName || ''}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex:0 0 auto;">${desig}${status}<span class="adv-caret">&#9656;</span></div>
+      </div>
+      <div class="adv-tile-body" id="advbody-${c?.id}" style="display:none;">${advisorEvalDetail(i)}</div>
+    </div>`;
+}
+
+function advisorEvalDetail(i) {
+  const ev = i.ev;
+  if (!ev) return '<div style="padding:12px;color:#888;font-style:italic;">No evaluation submitted yet.</div>';
+  if (ev.status === 'draft') return '<div style="padding:12px;color:#856404;font-style:italic;background:#fff8e1;border-radius:6px;">Evaluation in progress — not yet submitted.</div>';
+  return `
+    <div style="margin-bottom:8px;"><strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${new Date(ev.submitted_at).toLocaleDateString()}</span></div>
+    <div class="course-desc-box"><strong>Course Description:</strong> ${i.course?.description || ''}</div>
+    <div class="rte-label">External Narrative Evaluation</div>
+    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev.public_narrative}</div></div>
+    ${i.privateNarr ? `
+    <div class="rte-label private-label" style="margin-top:12px;">Internal Narrative Evaluation</div>
+    <div class="private-notice">Shared with you (advisor), the student, and the course faculty. Not part of the public record.</div>
+    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${i.privateNarr}</div></div>` : ''}`;
+}
+
+function toggleAdvisorEval(cid) {
+  const b = document.getElementById('advbody-' + cid), t = document.getElementById('advtile-' + cid);
+  if (!b) return;
+  const open = b.style.display !== 'none';
+  b.style.display = open ? 'none' : 'block';
+  if (t) t.classList.toggle('open', !open);
+}
+function openAdvisorEval(cid) {
+  const b = document.getElementById('advbody-' + cid), t = document.getElementById('advtile-' + cid);
+  if (b) { b.style.display = 'block'; if (t) t.classList.add('open'); }
 }
 
 
@@ -2767,7 +2814,16 @@ function buildHighlightsTile(rows) {
 }
 
 function scrollToEval(courseId) {
-  const el = document.getElementById('evalcard-' + courseId);
+  let el = document.getElementById('evalcard-' + courseId);   // student view
+  if (!el) {
+    // advisor master-detail: select the course's term, expand its tile
+    const item = (window._advisorItems || []).find(i => i.course && i.course.id === courseId);
+    if (item) {
+      if (appState.advisorTerm !== item.termKey) selectAdvisorTerm(item.termKey);
+      openAdvisorEval(courseId);
+      el = document.getElementById('advtile-' + courseId);
+    }
+  }
   if (!el) return;
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   el.classList.remove('flash');
