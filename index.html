@@ -196,6 +196,9 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .hl-text { font-size: 13px; line-height: 1.5; color: #333; }
 .hl-ref { color: #4a6cf7; font-size: 12px; white-space: nowrap; }
 .hl-empty { color: #aaa; font-size: 13px; padding: 4px 8px; }
+.hl-para { font-size: 14px; line-height: 1.75; color: #2c3440; margin: 0; }
+.hl-link { color: #4a6cf7; cursor: pointer; font-size: 12.5px; white-space: nowrap; text-decoration: none; }
+.hl-link:hover { text-decoration: underline; }
 .flash { animation: flashcard 1.5s ease; }
 @keyframes flashcard { 0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.08); } 25%, 60% { box-shadow: 0 0 0 3px #4a6cf7; } }
 /* Advisees list */
@@ -225,6 +228,8 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .adv-tile.open { border-color: #4a6cf7; }
 .adv-tile-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; }
 .adv-tile-head:hover { background: #f7f9ff; }
+.adv-tile-click { cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.adv-tile-click:hover { border-color: #4a6cf7; box-shadow: 0 2px 10px rgba(74,108,247,.12); }
 .adv-tile-body { padding: 0 14px 14px; }
 .adv-caret { color: #4a6cf7; transition: transform .15s; display: inline-block; }
 .adv-tile.open .adv-caret { transform: rotate(90deg); }
@@ -242,6 +247,10 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .evalpanel-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
 .evalpanel-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #888; line-height: 1; }
 .evalpanel-close:hover { color: #333; }
+.pk-toolbar { display: flex; flex-direction: column; gap: 10px; background: #f7f9fc; border: 1px solid #e3e9f2; border-radius: 8px; padding: 14px 16px; }
+.pk-cats { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.pk-cat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; user-select: none; }
+.pk-cat input { cursor: pointer; }
 .private-notice { font-size: 12px; color: #c0392b; font-style: italic; margin-bottom: 4px; }
 .public-notice { font-size: 12px; color: #27ae60; font-style: italic; margin-bottom: 4px; }
 
@@ -481,6 +490,36 @@ const CONFIG = {
 // The institution's current term. Faculty default to this; Browse covers the rest.
 const CURRENT_TERM = 'Spring 2026';
 
+// Link to the official NCF academic calendar. The Registrar's evaluation deadline
+// is published there each semester; in production the date below would be synced
+// from it (or entered by the Registrar) rather than hard-coded.
+const ACADEMIC_CALENDAR_URL = 'https://www.ncf.edu/academics/academic-calendar/';
+// Registrar deadline per term. Until this date, the authoring faculty may still
+// correct a submitted evaluation; afterward the record is permanently locked.
+// (Demo: Spring 2026 kept open so the edit-until-deadline flow is visible.)
+const REGISTRAR_DEADLINES = {
+  'Spring 2026': '2026-12-31T23:59:59',
+  'Fall 2025':   '2026-01-15T23:59:59',
+  'Spring 2025': '2025-06-15T23:59:59',
+};
+function registrarDeadline(term) {
+  const iso = REGISTRAR_DEADLINES[term];
+  return iso ? new Date(iso) : null;
+}
+function termOfCourse(course) { return course ? `${course.semester} ${course.year}` : CURRENT_TERM; }
+// True while faculty may still amend a submitted eval for the given term.
+function beforeRegistrarDeadline(term) {
+  const d = registrarDeadline(term);
+  return !d || new Date() <= d;
+}
+function deadlineLabel(term) {
+  const d = registrarDeadline(term);
+  return d ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'the published Registrar deadline';
+}
+// Absolute URL to the NCF "N" shield (works under file:// and http(s)://, and in
+// print windows opened via document.write). Used on official evaluation documents.
+function ncfShieldUrl() { return new URL('assets/NCF Shield RGB_no color copy.png', location.href).href; }
+
 const USE_DEMO = CONFIG.demoMode || CONFIG.supabaseUrl.includes('YOUR_');
 let _supabase = null;
 if (!USE_DEMO) {
@@ -684,6 +723,13 @@ function buildDemoData() {
   const IM = ['should continue developing quantitative skills','could engage more deeply with counter-arguments','would benefit from more consistent participation','should work on time management','needs to strengthen written argumentation','could push toward a sharper, more contestable thesis'];
   const reformat = nm => { const p = (nm || '').split(',').map(s => s.trim()); if (p.length < 2) return nm || '—'; const first = (p[1] || '').split(' ')[0]; return `${first} ${p[0]}`.trim(); };
   const termDate = c => `${c.year}-${c.semester === 'Fall' ? '12-15' : '05-08'}T10:00:00`;
+  // For an Incomplete, Banner records the student's last date of academic
+  // attendance. Demo: a plausible mid/late-term day (deterministic per enrollment).
+  const incLastDay = (c, seed) => {
+    const day = 10 + (seed % 18);           // 10th–27th
+    const mon = c.semester === 'Fall' ? '11' : '04';
+    return `${c.year}-${mon}-${String(day).padStart(2, '0')}`;
+  };
 
   // Faculty (real instructors)
   const facById = {};
@@ -727,6 +773,7 @@ function buildDemoData() {
     d.evaluations.push({
       id, student_id: stud.id, course_id: course.id, faculty_id: course.faculty_id,
       designation: e.d || '',
+      last_attend_date: e.d === 'inc' ? incLastDay(course, eseq) : null,
       public_narrative: `<p>${name} ${pick(SN)}. To grow further, ${name.split(' ')[0]} ${pick(IM)}.</p>`,
       status, submitted_at: submitted ? termDate(course) : null, updated_at: termDate(course),
     });
@@ -752,6 +799,16 @@ function buildDemoData() {
   // Two student logins: pick students with current-term enrollments.
   const spring = d.students.filter(s => s.enrollments.some(cid => { const c = courseById[cid]; return c && c.semester === 'Spring' && c.year === 2026; }));
   [spring[0], spring[1]].forEach((s, i) => { if (!s) return; d.profiles.push({ id: 'u_' + s.id, email: `student${i + 1}@ncf.edu`, full_name: s.full_name, role: 'student', is_advisor: false, division: s.aoc, student_id: s.id, login: true }); });
+  // Seed a certified current-term contract for the first student login so the
+  // student can see their advisor's contract certification in the demo.
+  if (spring[0]) {
+    d.contracts[spring[0].id] = {
+      student_id: spring[0].id, term: 'Spring 2026', designation: 'sat',
+      certified: true, certified_at: '2026-05-09T14:20:00',
+      banner_pushed: true, banner_pushed_at: '2026-05-09T14:22:00',
+      internal_narrative: `<p>${spring[0].full_name.split(' ')[0]} has met the terms of the Spring 2026 contract. Progress toward the area of concentration is on track, and the semester's coursework was completed satisfactorily. We discussed goals for the coming term during advising.</p>`,
+    };
+  }
 
   return d;
 }
@@ -910,6 +967,10 @@ const Data = {
         course_id: courseId,
         faculty_id: facultyId || appState.currentUser?.id,
         designation: evalData.designation,
+        // Last date of attendance from Banner — only meaningful for an Incomplete.
+        last_attend_date: evalData.designation === 'inc'
+          ? (evalData.lastAttendDate ?? (idx >= 0 ? demoData.evaluations[idx].last_attend_date : null))
+          : null,
         public_narrative: evalData.publicNarrative,
         status: evalData.status,
         submitted_at: evalData.status === 'submitted' ? (idx >= 0 && demoData.evaluations[idx].submitted_at ? demoData.evaluations[idx].submitted_at : now) : null,
@@ -1227,6 +1288,24 @@ function designationLabel(d) {
   return { strong_sat: 'Strong Satisfactory', sat: 'Satisfactory', marginal_sat: 'Marginal Satisfactory', unsat: 'Unsatisfactory', pass: 'Pass', fail: 'Fail', inc: 'Incomplete' }[d] || '—';
 }
 
+// Format a Banner last-day-of-attendance date (YYYY-MM-DD) for display.
+function fmtAttend(d) {
+  if (!d) return '—';
+  const parts = String(d).slice(0, 10).split('-');
+  if (parts.length !== 3) return d;
+  const dt = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+  return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// Show the Last Day of Attendance field only when the designation is Incomplete.
+function toggleAttendField() {
+  const sel = document.getElementById('designationSelect');
+  const field = document.getElementById('attendField');
+  if (!sel || !field) return;
+  field.style.display = sel.value === 'inc' ? '' : 'none';
+  markDirty();
+}
+
 function setSaveStatus(state, msg) {
   const el = document.getElementById('saveStatus');
   if (!el) return;
@@ -1236,7 +1315,7 @@ function setSaveStatus(state, msg) {
 
 function markDirty() {
   if (appState.view !== 'evaluation') return;
-  if (appState.currentEvalStatus === 'submitted' && !appState.isAmending) return;
+  if (appState.currentEvalStatus === 'submitted' && !appState.isAmending && !appState.canEditSubmitted) return;
   _isDirty = true;
   setSaveStatus('unsaved', '● Unsaved changes');
   clearTimeout(_autoSaveTimer);
@@ -1247,7 +1326,9 @@ async function autoSave() {
   if (!_isDirty || appState.view !== 'evaluation') return;
   setSaveStatus('saving', 'Saving…');
   try {
-    await performSave('draft', false);
+    // While correcting an already-submitted eval, autosave keeps it submitted
+    // (never silently demotes it back to a draft).
+    await performSave(appState.canEditSubmitted ? 'submitted' : 'draft', false, { requireDesignation: false });
     _isDirty = false;
     const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setSaveStatus('saved', `✓ Saved ${t}`);
@@ -1479,6 +1560,7 @@ function renderMain() {
     case 'advisor-student': renderAdvisorStudentView(mc); break;
     case 'contract':        renderContractView(mc); break;
     case 'registrar':       renderRegistrarView(mc); break;
+    case 'reg-packet':      renderRegistrarPacket(mc); break;
     case 'access-log':      renderAccessLogView(mc); break;
     case 'student-home':    renderStudentView(mc); break;
     case 'browse':          renderBrowseEvaluations(mc); break;
@@ -1523,6 +1605,7 @@ async function renderCourseView(mc) {
         <td class="clickable" onclick="openEvaluation('${s.id}','${appState.selectedCourseId}')">${s.full_name}</td>
         <td>${s.n_number}</td>
         <td>${s.year_level}</td>
+        <td>${gradDateFor(s.year_level)}</td>
         <td>${s.advisor ? s.advisor.full_name : (USE_DEMO ? (demoData.profiles.find(p=>p.id===s.advisor_id)?.full_name||'—') : '—')}</td>
         <td>${desigBadge}</td>
         <td>${statusBadge}</td>
@@ -1542,9 +1625,9 @@ async function renderCourseView(mc) {
           <div class="course-desc-box"><strong>Course Description:</strong> ${courseObj.description}</div>
           <table class="student-table">
             <thead><tr>
-              <th>Student</th><th>N-Number</th><th>Year</th><th>Advisor</th><th>Designation</th><th>Status</th>
+              <th>Student</th><th>N-Number</th><th>Year</th><th>Expected Grad</th><th>Advisor</th><th>Designation</th><th>Status</th>
             </tr></thead>
-            <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:#888;padding:20px;">No students enrolled.</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px;">No students enrolled.</td></tr>'}</tbody>
           </table>
         </div>
       </div>`;
@@ -1570,10 +1653,21 @@ async function renderEvaluationForm(mc) {
     appState.currentEvalId     = ev?.id || null;
     appState.currentEvalStatus = ev?.status || 'draft';
 
-    const isSubmitted = appState.currentEvalStatus === 'submitted' && !appState.isAmending;
+    const submitted = appState.currentEvalStatus === 'submitted';
     // PO Office (and, defensively, students) can read but never edit an evaluation.
     const isReadOnlyViewer = appState.currentUser?.role === 'po_office' || appState.currentUser?.role === 'student';
-    // "locked" = no editing for any reason (submitted, or a read-only viewer).
+    // The authoring faculty may correct a SUBMITTED evaluation until the Registrar's
+    // deadline for that term (published on the NCF academic calendar). After that
+    // the record is permanently locked.
+    const isAuthorFaculty = appState.currentUser?.role === 'faculty'
+      && ((ev && ev.faculty_id === appState.currentUser?.id) || (!ev && course.faculty_id === appState.currentUser?.id));
+    const evalTerm = termOfCourse(course);
+    const withinDeadline = beforeRegistrarDeadline(evalTerm);
+    const canEditSubmitted = submitted && isAuthorFaculty && withinDeadline && !isReadOnlyViewer;
+    appState.canEditSubmitted = canEditSubmitted;
+    // "isSubmitted" now means: submitted AND not being (re)opened for correction.
+    const isSubmitted = submitted && !appState.isAmending && !canEditSubmitted;
+    // "locked" = no editing for any reason (submitted & past deadline, or a read-only viewer).
     const locked = isSubmitted || isReadOnlyViewer;
     const facultyId   = USE_DEMO ? appState.currentUser?.id : null;
     const facultyName = USE_DEMO ? (demoData.profiles.find(p => p.id === (course.faculty_id || facultyId))?.full_name || '—') : '—';
@@ -1603,10 +1697,19 @@ async function renderEvaluationForm(mc) {
         ⚠ <span><strong>Amendment Mode.</strong> You are amending a submitted evaluation. The original will be archived. Submit when ready.</span>
       </div>` : '';
 
+    const submittedOn = ev?.submitted_at ? new Date(ev.submitted_at).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) : '';
     const lockNotice = isSubmitted ? `
       <div class="lock-notice">
-        ✓ <strong>Submitted</strong> on ${new Date(ev.submitted_at).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}.
-        This evaluation is locked. Contact the Registrar to amend a submitted evaluation.
+        ✓ <strong>Submitted</strong> on ${submittedOn}.
+        The Registrar deadline for ${evalTerm} (${deadlineLabel(evalTerm)}) has passed, so this evaluation is now permanently locked.
+        <a href="${ACADEMIC_CALENDAR_URL}" target="_blank" rel="noopener" style="color:#1a3a5c;">NCF academic calendar ↗</a>
+      </div>` : '';
+
+    // Submitted, but the faculty author can still correct it before the deadline.
+    const editWindowNotice = canEditSubmitted ? `
+      <div class="lock-notice" style="background:#eef6ff;border-color:#b6d4f2;color:#1a3a5c;">
+        ✓ <strong>Submitted</strong>${submittedOn ? ' on ' + submittedOn : ''}. You may still correct it until the Registrar deadline for ${evalTerm} — <strong>${deadlineLabel(evalTerm)}</strong>. Any change re-submits the record and is logged. After the deadline it locks automatically.
+        &nbsp;<a href="${ACADEMIC_CALENDAR_URL}" target="_blank" rel="noopener" style="color:#1a3a5c;font-weight:600;">NCF academic calendar ↗</a>
       </div>` : '';
 
     const viewerNotice = (isReadOnlyViewer && !isSubmitted) ? `
@@ -1626,7 +1729,7 @@ async function renderEvaluationForm(mc) {
                  : '<span class="status-badge status-not-started">New</span>'}
         </div>
         <div class="card-body">
-          ${lockNotice}${viewerNotice}
+          ${lockNotice}${editWindowNotice}${viewerNotice}
 
           <div class="eval-header-grid">
             <div class="eval-field"><label>Student</label><div class="field-value">${student.full_name}</div></div>
@@ -1640,7 +1743,7 @@ async function renderEvaluationForm(mc) {
             <div class="eval-field"><label>AOC</label><div class="field-value">${student.aoc || '—'}</div></div>
             <div class="eval-field">
               <label>Course Designation</label>
-              <select class="designation-select" id="designationSelect" ${locked ? 'disabled' : ''}>
+              <select class="designation-select" id="designationSelect" ${locked ? 'disabled' : ''} onchange="toggleAttendField()">
                 <option value="">— Select Designation —</option>
                 <option value="strong_sat"   ${designation==='strong_sat'   ? 'selected':''}>Strong Sat (SS)</option>
                 <option value="sat"          ${designation==='sat'          ? 'selected':''}>Sat (S)</option>
@@ -1650,6 +1753,13 @@ async function renderEvaluationForm(mc) {
                 <option value="fail"         ${designation==='fail'         ? 'selected':''}>Fail (F)</option>
                 <option value="inc"          ${designation==='inc'          ? 'selected':''}>Incomplete (INC)</option>
               </select>
+            </div>
+            <div class="eval-field" id="attendField" style="${designation==='inc' ? '' : 'display:none;'}">
+              <label>Last Day of Attendance <span style="font-weight:400;color:#888;">(Banner)</span></label>
+              ${locked
+                ? `<div class="field-value">${ev?.last_attend_date ? fmtAttend(ev.last_attend_date) : '—'}</div>`
+                : `<input type="date" class="designation-select" id="attendDate" value="${ev?.last_attend_date || ''}" onchange="markDirty()">`}
+              <div style="font-size:11px;color:#888;margin-top:3px;">Required for an Incomplete — the student's last date of academic attendance.</div>
             </div>
           </div>
 
@@ -1671,10 +1781,13 @@ async function renderEvaluationForm(mc) {
           <div class="btn-group">
             ${locked
               ? `<button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
-              : `<button class="btn btn-secondary" onclick="performSave('draft', true)">Save Draft</button>
-                 <button class="btn btn-primary" onclick="submitDesignationOnly()">Submit Designation only</button>
-                 <button class="btn btn-success" onclick="submitNarrativeOnly()">Submit Narrative only</button>
-                 <button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
+              : canEditSubmitted
+                ? `<button class="btn btn-success" onclick="saveSubmittedCorrection()">Save corrections</button>
+                   <button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
+                : `<button class="btn btn-secondary" onclick="performSave('draft', true)">Save Draft</button>
+                   <button class="btn btn-primary" onclick="submitDesignationOnly()">Submit Designation only</button>
+                   <button class="btn btn-success" onclick="submitNarrativeOnly()">Submit Narrative only</button>
+                   <button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
             }
           </div>
         </div>
@@ -1737,16 +1850,23 @@ async function performSave(status, showMsg, opts = {}) {
   const designation    = document.getElementById('designationSelect')?.value || '';
   const publicNarr     = _publicQuill.root.innerHTML;
   const privateNarr    = _privateQuill ? _privateQuill.root.innerHTML : undefined;
+  const lastAttendDate = document.getElementById('attendDate')?.value || '';
 
   if (status === 'submitted' && opts.requireDesignation !== false && !designation) {
     showToast('Please select a course designation before submitting.', '#dc3545');
+    return;
+  }
+  // An Incomplete requires the last date of attendance (Banner) before submitting.
+  if (status === 'submitted' && designation === 'inc' && !lastAttendDate) {
+    showToast('Enter the Last Day of Attendance (Banner) for an Incomplete.', '#dc3545');
+    toggleAttendField();
     return;
   }
 
   const saved = await Data.saveEvaluation(
     appState.selectedStudentId,
     appState.selectedCourseId,
-    { designation, publicNarrative: publicNarr, privateNarrative: privateNarr, status },
+    { designation, lastAttendDate, publicNarrative: publicNarr, privateNarrative: privateNarr, status },
     appState.currentUser?.id
   );
 
@@ -1797,8 +1917,101 @@ async function submitNarrativeOnly() {
   await performSave('submitted', true, { requireDesignation: false });
 }
 
+// Faculty author saves a correction to an already-submitted evaluation (allowed
+// only within the Registrar deadline window). Keeps the record submitted.
+async function saveSubmittedCorrection() {
+  if (!_publicQuill) return;
+  const publicNarr = _publicQuill.root.innerHTML;
+  if (!publicNarr.replace(/<[^>]*>|&nbsp;|\s/g, '').length) { showToast('The narrative cannot be emptied.', '#dc3545'); return; }
+  if (!confirm('Save corrections to this submitted evaluation? The updated version replaces the record and the change is logged.')) return;
+  await performSave('submitted', true, { requireDesignation: false });
+  Data.logAccess('amend_evaluation', 'evaluation', appState.currentEvalId, appState.selectedStudentId);
+}
+
+// Open a redesigned, official-looking evaluation document for print / save-as-PDF.
 function printEvaluation() {
-  window.print();
+  const student = USE_DEMO ? demoData.students.find(s => s.id === appState.selectedStudentId) : null;
+  const course  = USE_DEMO ? demoData.courses.find(c => c.id === appState.selectedCourseId) : null;
+  const ev      = USE_DEMO ? demoData.evaluations.find(e => e.student_id === appState.selectedStudentId && e.course_id === appState.selectedCourseId) : null;
+  if (!student || !course) { window.print(); return; }
+  const faculty = USE_DEMO ? demoData.profiles.find(p => p.id === (ev?.faculty_id || course.faculty_id)) : null;
+  openEvalDocument([{ student, course, ev, faculty }], `${student.full_name} — Narrative Evaluation`);
+}
+
+// ── Official narrative-evaluation document (print / PDF) ──────────────
+// Renders one evaluation per page on NCF letterhead (the "N" shield), suitable
+// for the Registrar's records. `entries` = [{ student, course, ev, faculty }].
+function evalDocumentPageHtml(entry) {
+  const { student, course, ev, faculty } = entry;
+  const term = `${course.semester} ${course.year}`;
+  const desig = ev?.designation ? designationLabel(ev.designation) : '—';
+  const incRow = ev?.designation === 'inc'
+    ? `<tr><th>Last Day of Attendance</th><td>${fmtAttend(ev.last_attend_date)} <span style="color:#888;">(Banner)</span></td></tr>` : '';
+  const submitted = ev?.submitted_at ? new Date(ev.submitted_at).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) : '—';
+  const narr = ev?.public_narrative && stripHtml(ev.public_narrative).length
+    ? ev.public_narrative : '<p style="color:#888;font-style:italic;">No narrative evaluation on record.</p>';
+  return `
+    <section class="doc-page">
+      <header class="doc-head">
+        <img class="doc-shield" src="${ncfShieldUrl()}" alt="New College of Florida">
+        <div class="doc-head-text">
+          <div class="doc-inst">New College of Florida</div>
+          <div class="doc-sub">Office of the Registrar · Narrative Evaluation</div>
+        </div>
+      </header>
+      <h1 class="doc-title">Narrative Evaluation of Academic Performance</h1>
+      <table class="doc-meta">
+        <tr><th>Student</th><td>${student.full_name}</td><th>N-Number</th><td>${student.n_number}</td></tr>
+        <tr><th>Course</th><td>${course.code}: ${course.name}</td><th>Term</th><td>${term}</td></tr>
+        <tr><th>Instructor</th><td>${faculty?.full_name || '—'}</td><th>Designation</th><td><strong>${desig}</strong></td></tr>
+        ${incRow}
+      </table>
+      <div class="doc-section-label">Course Description</div>
+      <div class="doc-desc">${course.description || '—'}</div>
+      <div class="doc-section-label">Narrative Evaluation</div>
+      <div class="doc-narr">${narr}</div>
+      <footer class="doc-foot">
+        <div>Submitted: ${submitted}</div>
+        <div>This document is part of the student's official academic record. · New College of Florida</div>
+      </footer>
+    </section>`;
+}
+
+function openEvalDocument(entries, title) {
+  const valid = entries.filter(e => e && e.student && e.course);
+  if (!valid.length) { showToast('Nothing to print.', '#dc3545'); return; }
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to generate the PDF.', '#dc3545'); return; }
+  const pages = valid.map(evalDocumentPageHtml).join('');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: Georgia, 'Times New Roman', serif; color: #1c2430; }
+      .doc-page { width: 8.5in; min-height: 11in; padding: 0.85in 0.9in; margin: 0 auto; page-break-after: always; display: flex; flex-direction: column; }
+      .doc-page:last-child { page-break-after: auto; }
+      .doc-head { display: flex; align-items: center; gap: 16px; border-bottom: 3px solid #1e2a4a; padding-bottom: 14px; }
+      .doc-shield { width: 58px; height: auto; }
+      .doc-inst { font-size: 20px; font-weight: 700; color: #1e2a4a; letter-spacing: .2px; }
+      .doc-sub { font-size: 12px; color: #55606f; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 3px; }
+      .doc-title { font-size: 17px; text-align: center; margin: 26px 0 20px; color: #1e2a4a; font-weight: 700; }
+      .doc-meta { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-family: Arial, sans-serif; font-size: 12.5px; }
+      .doc-meta th { text-align: left; color: #55606f; font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: .5px; padding: 6px 10px 6px 0; white-space: nowrap; vertical-align: top; width: 1%; }
+      .doc-meta td { padding: 6px 24px 6px 0; vertical-align: top; }
+      .doc-section-label { font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1e2a4a; border-bottom: 1px solid #ccd3dd; padding-bottom: 4px; margin: 22px 0 10px; }
+      .doc-desc { font-size: 13px; color: #444; font-style: italic; }
+      .doc-narr { font-size: 14px; line-height: 1.7; }
+      .doc-narr p { margin: 0 0 12px; }
+      .doc-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid #ccd3dd; display: flex; justify-content: space-between; font-family: Arial, sans-serif; font-size: 10px; color: #7a8492; gap: 16px; }
+      @page { size: letter; margin: 0; }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    </style></head><body>${pages}
+    <script>
+      // Give the shield image a moment to load before invoking the print dialog.
+      (function(){ var done=false; function go(){ if(done) return; done=true; setTimeout(function(){ window.focus(); window.print(); }, 120); }
+        var img=document.querySelector('.doc-shield');
+        if(img && !img.complete){ img.addEventListener('load',go); img.addEventListener('error',go); setTimeout(go,1200);} else { go(); } })();
+    <\/script></body></html>`);
+  w.document.close();
 }
 
 
@@ -1834,6 +2047,7 @@ async function renderAdvisorStudentView(mc) {
     }
 
     window._advisorItems = items;
+    window._advisorStudentId = student.id;
     window._advisorHighlights = buildHighlightsTile(submittedRows);
 
     const terms = [...new Set(items.map(i => i.termKey))].sort(semesterSortDesc);
@@ -1902,50 +2116,26 @@ function renderAdvisorTermPane() {
   pane.innerHTML = `<div class="term-divider">${term}</div>` + list.map(advisorTile).join('');
 }
 
+// A compact, clickable tile. Clicking opens the eval in the slide-over side
+// panel (the same one used on the contract page) — no accordion.
 function advisorTile(i) {
   const ev = i.ev, c = i.course;
+  const sid = window._advisorStudentId;
   const desig = ev ? getDesignationBadge(ev.designation) : '';
   const status = ev
     ? (ev.status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>' : '<span class="status-badge status-draft">Draft</span>')
     : '<span class="status-badge status-not-started">Not started</span>';
+  const clickable = ev && sid;
   return `
-    <div class="adv-tile" id="advtile-${c?.id}">
-      <div class="adv-tile-head" onclick="toggleAdvisorEval('${c?.id}')">
+    <div class="adv-tile${clickable ? ' adv-tile-click' : ''}" id="advtile-${c?.id}"${clickable ? ` onclick="openEvalPanel('${sid}','${c?.id}')"` : ''}>
+      <div class="adv-tile-head">
         <div style="min-width:0;">
           <div style="font-weight:600;font-size:13.5px;">${c?.code}: ${c?.name}</div>
           <div style="font-size:12px;color:#888;">${i.facultyName || ''}</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex:0 0 auto;">${desig}${status}<span class="adv-caret">&#9656;</span></div>
+        <div style="display:flex;gap:8px;align-items:center;flex:0 0 auto;">${desig}${status}${clickable ? '<span class="adv-caret">&#9656;</span>' : ''}</div>
       </div>
-      <div class="adv-tile-body" id="advbody-${c?.id}" style="display:none;">${advisorEvalDetail(i)}</div>
     </div>`;
-}
-
-function advisorEvalDetail(i) {
-  const ev = i.ev;
-  if (!ev) return '<div style="padding:12px;color:#888;font-style:italic;">No evaluation submitted yet.</div>';
-  if (ev.status === 'draft') return '<div style="padding:12px;color:#856404;font-style:italic;background:#fff8e1;border-radius:6px;">Evaluation in progress — not yet submitted.</div>';
-  return `
-    <div style="margin-bottom:8px;"><strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${new Date(ev.submitted_at).toLocaleDateString()}</span></div>
-    <div class="course-desc-box"><strong>Course Description:</strong> ${i.course?.description || ''}</div>
-    <div class="rte-label">External Narrative Evaluation</div>
-    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev.public_narrative}</div></div>
-    ${i.privateNarr ? `
-    <div class="rte-label private-label" style="margin-top:12px;">Internal Narrative Evaluation</div>
-    <div class="private-notice">Shared with you (advisor), the student, and the course faculty. Not part of the public record.</div>
-    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${i.privateNarr}</div></div>` : ''}`;
-}
-
-function toggleAdvisorEval(cid) {
-  const b = document.getElementById('advbody-' + cid), t = document.getElementById('advtile-' + cid);
-  if (!b) return;
-  const open = b.style.display !== 'none';
-  b.style.display = open ? 'none' : 'block';
-  if (t) t.classList.toggle('open', !open);
-}
-function openAdvisorEval(cid) {
-  const b = document.getElementById('advbody-' + cid), t = document.getElementById('advtile-' + cid);
-  if (b) { b.style.display = 'block'; if (t) t.classList.add('open'); }
 }
 
 
@@ -1996,11 +2186,49 @@ async function renderStudentView(mc) {
           </div>
         </div>
       </div>
+      ${studentContractCard(u.student_id)}
       <div id="studentGroups"></div>`;
     renderStudentGroups();
   } catch(e) {
     mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error loading your evaluations: ${e.message}</div></div>`;
   }
+}
+
+// The advisor's contract certification, shown to the student in their own view.
+function studentContractCard(studentId) {
+  const contract = getContract(studentId);
+  const student = USE_DEMO ? demoData.students.find(s => s.id === studentId) : null;
+  const advisor = (USE_DEMO && student) ? demoData.profiles.find(p => p.id === student.advisor_id) : null;
+  const desig = contract.designation ? (contract.designation === 'sat' ? 'Satisfactory' : 'Unsatisfactory') : '—';
+  const hasNarr = contract.internal_narrative && stripHtml(contract.internal_narrative).length;
+
+  if (!contract.certified) {
+    return `
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">Contract Certification — ${CURRENT_TERM}</div>
+        <div class="card-body" style="color:#888;font-size:14px;">
+          Your advisor${advisor ? ` (${advisor.full_name})` : ''} has not yet certified your ${CURRENT_TERM} contract. It will appear here once certified.
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        Contract Certification — ${CURRENT_TERM}
+        <span class="banner-ok">Certified</span>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;flex-wrap:wrap;gap:18px 32px;font-size:14px;margin-bottom:6px;">
+          <div><span style="color:#888;font-size:12px;display:block;">Advisor</span>${advisor?.full_name || '—'}</div>
+          <div><span style="color:#888;font-size:12px;display:block;">Contract Designation</span><strong>${desig}</strong></div>
+          <div><span style="color:#888;font-size:12px;display:block;">Certified</span>${contract.certified_at ? new Date(contract.certified_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}) : '—'}</div>
+        </div>
+        ${hasNarr ? `
+        <div class="rte-label private-label" style="margin-top:10px;">Internal Narrative Evaluation</div>
+        <div class="private-notice">A personal communication from your advisor. Only you may share it externally; it is not part of the official transcript.</div>
+        <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${contract.internal_narrative}</div></div>` : ''}
+      </div>
+    </div>`;
 }
 
 // Renders the student's evaluation cards, grouped by semester, applying the
@@ -2407,6 +2635,7 @@ async function openEvalPanel(studentId, courseId) {
         </select>
         <button class="btn btn-primary btn-sm" onclick="savePanelDesignation('${studentId}','${courseId}')">Save &amp; push to Banner</button>
       </div>
+      ${desig === 'inc' ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev?.last_attend_date)} <span style="color:#888;">(Banner)</span></div>` : ''}
       <div class="rte-label" style="margin-top:16px;">External Narrative Evaluation</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev?.public_narrative || '<span style="color:#888;">Not written yet.</span>'}</div></div>
       ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Internal Narrative Evaluation</div>
@@ -2557,7 +2786,10 @@ function applyRegistrarFilters() {
         ? '<span class="status-badge status-submitted">Submitted</span>'
         : '<span class="status-badge status-draft">Draft</span>'}</td>
       <td>${updated}</td>
-      <td><button class="btn btn-outline btn-sm" onclick="openFullEvalRegistrar('${e.student_id}','${e.course_id}')">View</button></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-outline btn-sm" onclick="openFullEvalRegistrar('${e.student_id}','${e.course_id}')">View</button>
+        <button class="btn btn-outline btn-sm" title="Sort this student's narratives and build a PDF packet" onclick="openRegistrarPacket('${e.student_id}')">Packet ▤</button>
+      </td>
     </tr>`;
   }
 
@@ -2578,6 +2810,113 @@ function openFullEvalRegistrar(studentId, courseId) {
   appState.selectedCourseId  = courseId;
   appState.view = 'evaluation';
   renderMain();
+}
+
+// ── Registrar: sort a student's narratives by designation and build a PDF packet ──
+const PACKET_CATEGORIES = [
+  ['strong_sat', 'Strong Sat (SS)'], ['sat', 'Sat (S)'], ['marginal_sat', 'Marginal Sat (MS)'],
+  ['unsat', 'Unsat (U)'], ['pass', 'Pass'], ['fail', 'Fail (F)'], ['inc', 'Incomplete (INC)'],
+];
+
+function openRegistrarPacket(studentId) {
+  destroyEditors();
+  appState.packetStudentId = studentId;
+  appState.view = 'reg-packet';
+  renderSidebar();
+  renderMain();
+}
+
+function renderRegistrarPacket(mc) {
+  const student = USE_DEMO ? demoData.students.find(s => s.id === appState.packetStudentId) : null;
+  if (!student) { mc.innerHTML = '<div class="loading">Student not found.</div>'; return; }
+  Data.logAccess('view_student_record', 'student', student.id, student.id);
+
+  // All of this student's evaluations, most-recent term first, then by designation.
+  const desigOrder = { strong_sat:0, sat:1, marginal_sat:2, pass:3, unsat:4, fail:5, inc:6, '':7 };
+  const evals = demoData.evaluations
+    .filter(e => e.student_id === student.id)
+    .map(e => ({ e, c: _courseById[e.course_id] }))
+    .filter(x => x.c)
+    .sort((a, b) => semesterKey(b.c.semester, b.c.year) - semesterKey(a.c.semester, a.c.year)
+      || (desigOrder[a.e.designation] ?? 9) - (desigOrder[b.e.designation] ?? 9));
+  window._packetEvals = evals;
+
+  const present = [...new Set(evals.map(x => x.e.designation).filter(Boolean))];
+  const catBoxes = PACKET_CATEGORIES.filter(([k]) => present.includes(k)).map(([k, label]) =>
+    `<label class="pk-cat"><input type="checkbox" class="pk-cat-box" value="${k}" checked onchange="applyPacketFilter()"> ${getDesignationBadge(k)} ${label}</label>`
+  ).join('');
+
+  mc.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <button class="btn btn-outline btn-sm" onclick="navToRegistrar()">← Back to all evaluations</button>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <h3 style="color:#1a3a5c;margin-bottom:2px;">Narrative Packet — ${student.full_name}</h3>
+        <div style="color:#666;font-size:13px;margin-bottom:12px;">${student.n_number} · ${student.year_level} · ${student.aoc || '—'} · ${evals.length} evaluation${evals.length !== 1 ? 's' : ''} on record</div>
+
+        <div class="pk-toolbar">
+          <div style="font-size:12px;font-weight:700;color:#1a3a5c;text-transform:uppercase;letter-spacing:.5px;">Include designations</div>
+          <div class="pk-cats">${catBoxes || '<span style="color:#888;font-size:13px;">No designations recorded.</span>'}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+            <button class="btn btn-outline btn-sm" onclick="packetSelectAll(true)">Select all rows</button>
+            <button class="btn btn-outline btn-sm" onclick="packetSelectAll(false)">Clear rows</button>
+            <button class="btn btn-primary btn-sm" onclick="generatePacketPDF()">Generate PDF ▤</button>
+          </div>
+        </div>
+
+        <div id="packetTable" style="margin-top:14px;"></div>
+      </div>
+    </div>`;
+  applyPacketFilter();
+}
+
+// Filter the row list to the checked designation categories (keeps individual
+// row checkboxes so the registrar can pick "some or all").
+function applyPacketFilter() {
+  const cats = [...document.querySelectorAll('.pk-cat-box:checked')].map(b => b.value);
+  const container = document.getElementById('packetTable');
+  if (!container) return;
+  const rows = (window._packetEvals || []).filter(x => cats.includes(x.e.designation));
+  if (!rows.length) {
+    container.innerHTML = '<div style="text-align:center;color:#888;padding:24px;">No evaluations in the selected categories.</div>';
+    return;
+  }
+  const body = rows.map(({ e, c }) => {
+    const fac = demoData.profiles.find(p => p.id === (e.faculty_id || c.faculty_id));
+    const inc = e.designation === 'inc' ? `<div style="font-size:11px;color:#b8860b;">LDA: ${fmtAttend(e.last_attend_date)}</div>` : '';
+    return `<tr>
+      <td style="text-align:center;"><input type="checkbox" class="pk-row-box" data-ev="${e.id}" checked></td>
+      <td>${c.code}: ${c.name}${inc}</td>
+      <td>${c.semester} ${c.year}</td>
+      <td>${fac?.full_name || '—'}</td>
+      <td>${getDesignationBadge(e.designation)}</td>
+      <td>${e.status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>' : '<span class="status-badge status-draft">Draft</span>'}</td>
+    </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <table class="student-table">
+      <thead><tr><th style="width:1%;">✓</th><th>Course</th><th>Semester</th><th>Instructor</th><th>Designation</th><th>Status</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+    <div style="font-size:12px;color:#888;margin-top:8px;">${rows.length} evaluation${rows.length !== 1 ? 's' : ''} listed · checked rows are included in the PDF.</div>`;
+}
+
+function packetSelectAll(on) {
+  document.querySelectorAll('.pk-row-box').forEach(b => { b.checked = on; });
+}
+
+function generatePacketPDF() {
+  const ids = new Set([...document.querySelectorAll('.pk-row-box:checked')].map(b => b.dataset.ev));
+  const chosen = (window._packetEvals || []).filter(x => ids.has(x.e.id));
+  if (!chosen.length) { showToast('Select at least one evaluation.', '#dc3545'); return; }
+  const student = demoData.students.find(s => s.id === appState.packetStudentId);
+  const entries = chosen.map(({ e, c }) => ({
+    student, course: c, ev: e,
+    faculty: demoData.profiles.find(p => p.id === (e.faculty_id || c.faculty_id)),
+  }));
+  Data.logAccess('export_narrative_packet', 'student', student.id, student.id);
+  openEvalDocument(entries, `${student.full_name} — Narrative Packet (${entries.length})`);
 }
 
 function exportCSV() {
@@ -2784,31 +3123,40 @@ function buildHighlightsTile(rows) {
   for (const { course, ev } of rows) {
     if (!ev || ev.status !== 'submitted' || !course) continue;
     const h = extractHighlights(ev.public_narrative);
-    const ref = `${course.code} · ${course.semester} ${course.year}`;
+    const ref = `${course.code}, ${course.semester} ${course.year}`;
     h.strengths.slice(0, 2).forEach(t => strengths.push({ t, cid: course.id, ref }));
     h.improvements.slice(0, 2).forEach(t => improvements.push({ t, cid: course.id, ref }));
   }
   if (!strengths.length && !improvements.length) return '';
-  const item = (x, color) => `
-    <div class="hl-item" onclick="scrollToEval('${x.cid}')" title="Open the source evaluation">
-      <span class="hl-dot" style="background:${color}"></span>
-      <span class="hl-text">${x.t} <span class="hl-ref">— ${x.ref}</span></span>
-    </div>`;
+
+  // A citation link back to the source evaluation, embedded in the prose.
+  const cite = x => `<a class="hl-link" onclick="scrollToEval('${x.cid}')" title="Open the source evaluation">(${x.ref})</a>`;
+  // Weave the extracted sentences into a flowing paragraph, each remark followed
+  // by a link to the narrative it came from.
+  const paragraph = list => list.map(x => {
+    let t = x.t.trim();
+    if (!/[.!?]$/.test(t)) t += '.';
+    return `${t} ${cite(x)}`;
+  }).join(' ');
+
+  const strengthsPara = strengths.length
+    ? `<p class="hl-para">Across the submitted evaluations, faculty consistently note that ${paragraph(strengths)}</p>`
+    : '<p class="hl-para hl-empty">No specific strengths were surfaced from the current evaluations.</p>';
+  const improvePara = improvements.length
+    ? `<p class="hl-para">Faculty also point to areas for continued growth: ${paragraph(improvements)}</p>`
+    : '<p class="hl-para hl-empty">No specific areas to improve were surfaced from the current evaluations.</p>';
+
   return `
     <div class="card" style="margin-bottom:16px;">
       <div class="card-header">
         Evaluation Highlights
-        <span style="font-size:12px;font-weight:400;color:#888;">Auto-extracted · click a highlight to open its evaluation</span>
+        <span style="font-size:12px;font-weight:400;color:#888;">Summarized from the narratives · links open the source evaluation</span>
       </div>
-      <div class="card-body hl-grid">
-        <div>
-          <div class="hl-col-title" style="color:#1e7e34;">✦ Strengths</div>
-          ${strengths.length ? strengths.map(x => item(x, '#28a745')).join('') : '<div class="hl-empty">—</div>'}
-        </div>
-        <div>
-          <div class="hl-col-title" style="color:#b8860b;">➜ Areas to improve</div>
-          ${improvements.length ? improvements.map(x => item(x, '#e0a800')).join('') : '<div class="hl-empty">—</div>'}
-        </div>
+      <div class="card-body">
+        <div class="hl-col-title" style="color:#1e7e34;margin-bottom:4px;">✦ Strengths</div>
+        ${strengthsPara}
+        <div class="hl-col-title" style="color:#b8860b;margin:14px 0 4px;">➜ Areas to improve</div>
+        ${improvePara}
       </div>
     </div>`;
 }
@@ -2816,11 +3164,11 @@ function buildHighlightsTile(rows) {
 function scrollToEval(courseId) {
   let el = document.getElementById('evalcard-' + courseId);   // student view
   if (!el) {
-    // advisor master-detail: select the course's term, expand its tile
+    // advisor all-evals view: select the course's term, then open the slide-over.
     const item = (window._advisorItems || []).find(i => i.course && i.course.id === courseId);
     if (item) {
       if (appState.advisorTerm !== item.termKey) selectAdvisorTerm(item.termKey);
-      openAdvisorEval(courseId);
+      if (item.ev && window._advisorStudentId) openEvalPanel(window._advisorStudentId, courseId);
       el = document.getElementById('advtile-' + courseId);
     }
   }
