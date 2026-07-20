@@ -186,19 +186,25 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   border-bottom: 2px solid #4a6cf7;
 }
 .term-divider:first-child { margin-top: 4px; }
-/* Evaluation Highlights tile */
-.hl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-@media (max-width: 700px) { .hl-grid { grid-template-columns: 1fr; } }
-.hl-col-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
-.hl-item { display: flex; gap: 8px; align-items: flex-start; padding: 7px 8px; border-radius: 6px; cursor: pointer; transition: background 0.15s; }
-.hl-item:hover { background: #f0f4ff; }
-.hl-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex: 0 0 auto; }
-.hl-text { font-size: 13px; line-height: 1.5; color: #333; }
-.hl-ref { color: #4a6cf7; font-size: 12px; white-space: nowrap; }
-.hl-empty { color: #aaa; font-size: 13px; padding: 4px 8px; }
-.hl-para { font-size: 14px; line-height: 1.75; color: #2c3440; margin: 0; }
-.hl-link { color: #4a6cf7; cursor: pointer; font-size: 12.5px; white-space: nowrap; text-decoration: none; }
-.hl-link:hover { text-decoration: underline; }
+/* Student course list (modern card rows) */
+.course-list { display: flex; flex-direction: column; gap: 10px; }
+.course-row { display: flex; justify-content: space-between; gap: 16px; align-items: center; background: #fff; border: 1px solid #e7ebf2; border-radius: 12px; padding: 14px 18px; transition: border-color .12s, box-shadow .12s; }
+.course-row:hover { border-color: #c7d2e6; box-shadow: 0 3px 12px rgba(30,42,74,.07); }
+.course-row-unread { border-left: 4px solid #4a6cf7; }
+.contract-row { background: linear-gradient(0deg,#fbfcff,#fbfcff); border-color: #dbe4f5; }
+.course-row-main { min-width: 0; }
+.course-row-title { font-weight: 650; font-size: 15px; color: #1e2a4a; display: flex; align-items: center; gap: 8px; }
+.course-row-meta { font-size: 12.5px; color: #7a8494; margin-top: 3px; }
+.course-row-inst { font-size: 13px; color: #445; margin-top: 3px; }
+.course-row-side { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
+.course-row-desig { min-width: 34px; text-align: center; }
+.reg-pill { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.reg-registered { background: #e6f4ea; color: #1e7e34; }
+.reg-withdrawn { background: #f1f1f3; color: #8a8f98; }
+.pill-muted { font-size: 12px; color: #9aa1ab; font-style: italic; }
+.unread-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #4a6cf7; box-shadow: 0 0 0 3px rgba(74,108,247,.18); }
+.unread-badge { display: inline-block; background: #fff; color: #4a6cf7; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; margin-left: 4px; vertical-align: middle; }
+@media (max-width: 640px) { .course-row { flex-direction: column; align-items: flex-start; } .course-row-side { width: 100%; justify-content: space-between; } }
 .flash { animation: flashcard 1.5s ease; }
 @keyframes flashcard { 0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.08); } 25%, 60% { box-shadow: 0 0 0 3px #4a6cf7; } }
 /* Advisees list */
@@ -731,6 +737,54 @@ function buildDemoData() {
     return `${c.year}-${mon}-${String(day).padStart(2, '0')}`;
   };
 
+  // ── Filler prose (Lorem Ipsum) for realistic-length narratives ──
+  const LOREM = ('lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt culpa qui officia deserunt mollit anim id est laborum sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium totam rem aperiam eaque ipsa quae ab illo inventore veritatis quasi architecto beatae vitae dicta sunt explicabo nemo enim ipsam voluptatem quia voluptas aspernatur aut odit fugit consequuntur magni dolores eos ratione sequi nesciunt neque porro quisquam dolorem adipisci numquam eius modi tempora incidunt magnam quaerat').split(' ');
+  const loremSentence = () => {
+    const n = 8 + Math.floor(rnd() * 10);
+    let words = [];
+    for (let i = 0; i < n; i++) words.push(LOREM[Math.floor(rnd() * LOREM.length)]);
+    words[0] = words[0][0].toUpperCase() + words[0].slice(1);
+    let s = words.join(' ');
+    if (rnd() < 0.25) { const at = 3 + Math.floor(rnd() * (words.length - 4)); s = words.slice(0, at).join(' ') + ', ' + words.slice(at).join(' '); }
+    return s + '.';
+  };
+  const loremParagraph = () => { const n = 3 + Math.floor(rnd() * 3); let p = []; for (let i = 0; i < n; i++) p.push(loremSentence()); return p.join(' '); };
+  // A full-length course narrative: a real-ish opening + several filler paragraphs.
+  const mkLongNarrative = (name) => {
+    const first = name.split(' ')[0];
+    const paras = [
+      `${name} ${pick(SN)}. ${loremSentence()} ${loremSentence()} ${loremSentence()}`,
+      loremParagraph(),
+      `${first} ${pick(IM)}. ${loremSentence()} ${loremSentence()}`,
+    ];
+    return paras.map(p => `<p>${p}</p>`).join('');
+  };
+  // A shorter internal / contract narrative.
+  const mkShortNarrative = (name) => `<p>${name.split(' ')[0]} ${pick(IM)}. ${loremSentence()}</p>`;
+
+  // ── Course metadata (Subject Code / Course Number / Session / Type / etc.) ──
+  // The Argos source carries only CRN + free-text title, so these Banner-style
+  // fields are synthesized deterministically for the demo.
+  const SUBJ_KEYS = [
+    [/biolog|marine|ecolog/i,'BIO'],[/chem/i,'CHM'],[/physic|astro/i,'PHY'],[/math|calculus|algebra|statistic/i,'MAT'],
+    [/data|comput|program|software|algorithm/i,'CSC'],[/psycholog|cognit/i,'PSY'],[/sociolog|social/i,'SOC'],
+    [/anthropolog/i,'ANT'],[/econ/i,'ECN'],[/politic|govern/i,'POL'],[/histor/i,'HIS'],[/philosoph/i,'PHI'],
+    [/religio/i,'REL'],[/literat|writing|rhetoric|poetr|fiction|novel/i,'LIT'],[/art|paint|sculpt|drawing/i,'ART'],
+    [/music|composition/i,'MUS'],[/danc|theat|performa/i,'THE'],[/spanish|french|german|language|linguis/i,'LAN'],
+    [/environ|sustain/i,'ENV'],[/gender|women/i,'GST'],[/tutorial/i,'TUT'],
+  ];
+  const subjectCode = (title, div) => {
+    for (const [re, code] of SUBJ_KEYS) if (re.test(title)) return code;
+    return ({ 'Natural Sciences':'NSC','Social Sciences':'SSC','Humanities':'HUM','OTHER':'GEN','':'GEN' }[div] || 'GEN');
+  };
+  const courseTypeOf = (title) => {
+    if (/\bISP\b|independent study/i.test(title)) return 'Independent Study Project';
+    if (/\blab(orator)?y?\b/i.test(title)) return 'Laboratory';
+    if (/tutorial/i.test(title)) return 'Tutorial';
+    if (/thesis/i.test(title)) return 'Senior Thesis';
+    return 'Course/Seminar/Topics';
+  };
+
   // Faculty (real instructors)
   const facById = {};
   for (const f of A.faculty) {
@@ -742,10 +796,25 @@ function buildDemoData() {
   d.profiles.push({ id: 'po', email: 'provost@ncf.edu', full_name: 'Provost Office', role: 'po_office', is_advisor: false, division: "Provost's Office", login: true });
   d.profiles.push({ id: 'ad', email: 'admin@ncf.edu', full_name: 'Admin User', role: 'admin', is_advisor: false, division: 'Academic Affairs', login: true });
 
-  // Courses (real)
+  // Courses (real). Banner-style metadata fields are synthesized (see helpers above).
   const courseById = {};
   for (const c of A.courses) {
-    const course = { id: c.id, code: 'CRN ' + c.crn, name: c.title, semester: c.sem, year: c.year, faculty_id: c.faculty_id, division: c.div || '', description: `${c.title}${c.div ? ' — ' + c.div : ''}.`, is_isp: false };
+    const crn = String(c.crn).replace(/\.0$/, '');
+    const subj = subjectCode(c.title, c.div);
+    const num = String(1000 + (parseInt(crn, 10) % 4000)).padStart(4, '0');
+    const rWith = rnd();
+    const primary = facById[c.faculty_id]?.full_name || '—';
+    // Occasionally a course is co-taught (demonstrates multiple instructors).
+    const instructors = [primary];
+    if (rnd() < 0.08) { instructors.push(`${pick(FIRST)} ${pick(LAST)}`); if (rnd() < 0.3) instructors.push(`${pick(FIRST)} ${pick(LAST)}`); }
+    const type = courseTypeOf(c.title);
+    const session = type === 'Tutorial' ? pick(['Module 1','Module 2','Full Term']) : (rnd() < 0.06 ? 'Module 1' : 'Full Term');
+    const course = {
+      id: c.id, code: 'CRN ' + crn, name: c.title, semester: c.sem, year: c.year,
+      faculty_id: c.faculty_id, division: c.div || '', description: `${c.title}${c.div ? ' — ' + c.div : ''}.`, is_isp: false,
+      crn, subject_code: subj, course_number: num, course_type: type, session,
+      reg_status: rWith < 0.05 ? 'Withdrawn' : 'Registered', instructors,
+    };
     d.courses.push(course); courseById[c.id] = course;
   }
 
@@ -774,10 +843,10 @@ function buildDemoData() {
       id, student_id: stud.id, course_id: course.id, faculty_id: course.faculty_id,
       designation: e.d || '',
       last_attend_date: e.d === 'inc' ? incLastDay(course, eseq) : null,
-      public_narrative: `<p>${name} ${pick(SN)}. To grow further, ${name.split(' ')[0]} ${pick(IM)}.</p>`,
+      public_narrative: submitted ? mkLongNarrative(name) : '',
       status, submitted_at: submitted ? termDate(course) : null, updated_at: termDate(course),
     });
-    if (submitted && rnd() < 0.4) d.privateNotes[id] = `<p>Privately: ${name.split(' ')[0]} ${pick(IM)}.</p>`;
+    if (submitted && rnd() < 0.4) d.privateNotes[id] = mkShortNarrative(name);
   }
 
   // Synthetic ISP (January 2026 interterm) — the Argos data has no Jan term.
@@ -785,14 +854,16 @@ function buildDemoData() {
   const ispCourses = [];
   for (let i = 0; i < ISP_TOPICS.length; i++) {
     const id = 'isp' + i;
-    const c = { id, code: 'ISP 290', name: 'ISP: ' + ISP_TOPICS[i], semester: 'January', year: 2026, faculty_id: A.advisorFac[i % A.advisorFac.length], division: 'Interdisciplinary', description: 'January Independent Study Project.', is_isp: true };
+    const fid = A.advisorFac[i % A.advisorFac.length];
+    const c = { id, code: 'ISP 290', name: 'ISP: ' + ISP_TOPICS[i], semester: 'January', year: 2026, faculty_id: fid, division: 'Interdisciplinary', description: 'January Independent Study Project.', is_isp: true,
+      crn: String(29000 + i), subject_code: 'ISP', course_number: '0290', course_type: 'Independent Study Project', session: 'January Interterm', reg_status: 'Registered', instructors: [facById[fid]?.full_name || '—'] };
     d.courses.push(c); courseById[id] = c; ispCourses.push(c);
   }
   for (const stud of d.students) {
     if (rnd() < 0.16) {
       const c = pick(ispCourses); stud.enrollments.push(c.id);
       eseq++; const id = 'e' + eseq; const name = stud.full_name;
-      d.evaluations.push({ id, student_id: stud.id, course_id: c.id, faculty_id: c.faculty_id, designation: pick(['strong_sat','sat','pass']), public_narrative: `<p>${name} ${pick(SN)}.</p>`, status: 'submitted', submitted_at: '2026-01-26T10:00:00', updated_at: '2026-01-26T10:00:00' });
+      d.evaluations.push({ id, student_id: stud.id, course_id: c.id, faculty_id: c.faculty_id, designation: pick(['strong_sat','sat','pass']), public_narrative: mkLongNarrative(name), status: 'submitted', submitted_at: '2026-01-26T10:00:00', updated_at: '2026-01-26T10:00:00' });
     }
   }
 
@@ -1367,31 +1438,14 @@ async function renderSidebar() {
 
   // ── Student: read-only view of their own evaluations, grouped by semester ──
   if (u.role === 'student') {
+    // The student lands directly on the full course list (grouped by term), so
+    // the sidebar just needs a single entry — no per-term navigation.
     html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">My Evaluations</div>';
-    try {
-      const items = await Data.getStudentCoursesWithEvals(u.student_id);
-      if (items.length === 0) {
-        html += '<div style="padding:20px;color:#888;font-size:13px;">No course enrollments found.</div>';
-      } else {
-        const groups = {};
-        for (const it of items) {
-          const key = `${it.course.semester} ${it.course.year}`;
-          (groups[key] = groups[key] || []).push(it);
-        }
-        for (const k of Object.keys(groups).sort(semesterSortDesc)) {
-          const g = groups[k];
-          const done = g.filter(x => x.ev).length;
-          const active = (appState.view === 'student-home' && appState.studentSemFilter === k) ? ' active' : '';
-          html += `<div class="sidebar-item${active}" onclick="navToStudentHome('${k}')">
-            <div class="si-title">${k}</div>
-            <div class="si-subtitle">${g.length} course${g.length !== 1 ? 's' : ''}</div>
-            <span class="si-badge ${done > 0 ? 'badge-partial' : 'badge-pending'}">${done}/${g.length} available</span>
-          </div>`;
-        }
-      }
-    } catch(e) {
-      html += '<div style="padding:12px;color:#c00;font-size:12px;">Error loading evaluations.</div>';
-    }
+    const active = (appState.view === 'student-home' || appState.view === 'default') ? ' active' : '';
+    html += `<div class="sidebar-item${active}" onclick="navToStudentHome()">
+      <div class="si-title">My Narrative Evaluations</div>
+      <div class="si-subtitle">All courses by term</div>
+    </div>`;
   }
 
   if (u.role === 'faculty' || u.role === 'admin') {
@@ -2030,7 +2084,6 @@ async function renderAdvisorStudentView(mc) {
   try {
     const enrollmentIds = USE_DEMO ? student.enrollments : [];
     const items = [];            // { termKey, division, facultyName, cardHtml }
-    const submittedRows = [];    // for the aggregated highlights tile
 
     for (const courseId of enrollmentIds) {
       const course   = USE_DEMO ? demoData.courses.find(c => c.id === courseId) : null;
@@ -2038,7 +2091,7 @@ async function renderAdvisorStudentView(mc) {
       const ev       = USE_DEMO ? demoData.evaluations.find(e => e.student_id === student.id && e.course_id === courseId) : null;
       let privateNarr = '';
       // Advisors see the Internal Narrative Evaluation too (shared faculty/student/advisor).
-      if (ev && ev.status === 'submitted') { privateNarr = await Data.getPrivateNote(ev.id); if (course) submittedRows.push({ course, ev }); }
+      if (ev && ev.status === 'submitted') { privateNarr = await Data.getPrivateNote(ev.id); }
       items.push({
         termKey: course ? `${course.semester} ${course.year}` : 'Other',
         division: course?.division || '', facultyName: faculty?.full_name || '',
@@ -2048,7 +2101,6 @@ async function renderAdvisorStudentView(mc) {
 
     window._advisorItems = items;
     window._advisorStudentId = student.id;
-    window._advisorHighlights = buildHighlightsTile(submittedRows);
 
     const terms = [...new Set(items.map(i => i.termKey))].sort(semesterSortDesc);
     const areas = [...new Set(items.map(i => i.division).filter(Boolean))].sort();
@@ -2078,7 +2130,6 @@ async function renderAdvisorStudentView(mc) {
           </div>
         </div>
       </div>
-      ${window._advisorHighlights}
       <div class="adv-split">
         <div class="adv-terms">
           <div style="font-size:11px;font-weight:700;color:#1a3a5c;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Semesters</div>
@@ -2147,151 +2198,211 @@ function advisorTile(i) {
 // advisor — but never anything from the Registrar/PO-only side. RLS enforces this.
 // ═══════════════════════════════════════════════════════════════════
 
+// ── Student read-state (per session) ──
+// Tracks which narratives / certifications the student has opened, so the list
+// can flag unread items. Reset each load (demo has no persistence layer).
+const _readNarratives = new Set();
+function isNarrativeRead(key) { return _readNarratives.has(key); }
+function markNarrativeRead(key) { _readNarratives.add(key); }
+
 async function renderStudentView(mc) {
-  mc.innerHTML = '<div class="loading"><div class="spinner"></div>Loading your evaluations…</div>';
+  mc.innerHTML = '<div class="loading"><div class="spinner"></div>Loading your courses…</div>';
   const u = appState.currentUser;
   try {
-    const items = await Data.getStudentCoursesWithEvals(u.student_id);
+    // Lightweight list only — narratives are fetched lazily on "View" so the
+    // page stays fast no matter how many courses a student has taken.
+    const enrollments = USE_DEMO
+      ? (demoData.students.find(s => s.id === u.student_id)?.enrollments || [])
+      : [];
     Data.logAccess('view_student_record', 'student', u.student_id, u.student_id);
-    // Fetch the Internal Narrative Evaluation for each submitted eval (shared with the student).
-    await Promise.all(items.map(async it => { if (it.ev) it.privateNarr = await Data.getPrivateNote(it.ev.id); }));
 
-    if (items.length === 0) {
+    const rows = enrollments.map(cid => {
+      const course = _courseById[cid];
+      if (!course) return null;
+      const ev = demoData.evaluations.find(e => e.student_id === u.student_id && e.course_id === cid) || null;
+      return { course, ev };
+    }).filter(Boolean);
+
+    if (rows.length === 0) {
       mc.innerHTML = '<div class="card"><div class="card-body" style="color:#888;">No course enrollments found for your account.</div></div>';
       return;
     }
 
-    window._studentItems = items;
-
-    const semesters = [...new Set(items.map(i => `${i.course.semester} ${i.course.year}`))].sort(semesterSortDesc);
-    const areas = [...new Set(items.map(i => i.course.division).filter(Boolean))].sort();
-    const profs = [...new Set(items.map(i => i.faculty?.full_name).filter(Boolean))].sort();
-    const opt = (arr, label, cur = '') => `<option value="">${label}</option>` + arr.map(v => `<option value="${v}"${v === cur ? ' selected' : ''}>${v}</option>`).join('');
-    // A semester clicked in the sidebar pre-selects the Semester filter.
-    const preSem = appState.studentSemFilter || '';
+    window._studentRows = rows;
 
     mc.innerHTML = `
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
           <h3 style="margin-bottom:4px;">My Narrative Evaluations</h3>
-          <div style="color:#666;font-size:14px;">${u.full_name}</div>
-          <div style="color:#888;font-size:13px;margin-top:2px;">Only submitted evaluations are shown.</div>
-          <div class="filter-bar" style="margin-top:14px;">
-            <div class="filter-group"><label>Semester</label>
-              <select class="filter-select" id="sSem" onchange="renderStudentGroups()">${opt(semesters,'All semesters', preSem)}</select></div>
-            <div class="filter-group"><label>Area</label>
-              <select class="filter-select" id="sArea" onchange="renderStudentGroups()">${opt(areas,'All areas')}</select></div>
-            <div class="filter-group"><label>Faculty</label>
-              <select class="filter-select" id="sProf" onchange="renderStudentGroups()">${opt(profs,'All faculty')}</select></div>
-          </div>
+          <div style="color:#666;font-size:14px;">${u.full_name} · ${u.n_number || ''}</div>
+          <div style="color:#888;font-size:13px;margin-top:2px;">Your courses by term. A <span class="unread-dot"></span> <strong>New</strong> marker means a narrative you haven't opened yet.</div>
         </div>
       </div>
-      ${studentContractCard(u.student_id)}
       <div id="studentGroups"></div>`;
-    renderStudentGroups();
+    renderStudentList();
   } catch(e) {
-    mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error loading your evaluations: ${e.message}</div></div>`;
+    mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error loading your courses: ${e.message}</div></div>`;
   }
 }
 
-// The advisor's contract certification, shown to the student in their own view.
-function studentContractCard(studentId) {
-  const contract = getContract(studentId);
-  const student = USE_DEMO ? demoData.students.find(s => s.id === studentId) : null;
-  const advisor = (USE_DEMO && student) ? demoData.profiles.find(p => p.id === student.advisor_id) : null;
-  const desig = contract.designation ? (contract.designation === 'sat' ? 'Satisfactory' : 'Unsatisfactory') : '—';
-  const hasNarr = contract.internal_narrative && stripHtml(contract.internal_narrative).length;
+// Modern card list of every course taken, grouped by term (descending), with the
+// contract certification shown alongside its term. No narratives loaded here.
+function renderStudentList() {
+  const rows = window._studentRows || [];
+  const container = document.getElementById('studentGroups');
+  if (!container) return;
+  const u = appState.currentUser;
 
-  if (!contract.certified) {
-    return `
-      <div class="card" style="margin-bottom:16px;">
-        <div class="card-header">Contract Certification — ${CURRENT_TERM}</div>
-        <div class="card-body" style="color:#888;font-size:14px;">
-          Your advisor${advisor ? ` (${advisor.full_name})` : ''} has not yet certified your ${CURRENT_TERM} contract. It will appear here once certified.
-        </div>
-      </div>`;
+  const groups = {};
+  for (const r of rows) {
+    const key = `${r.course.semester} ${r.course.year}`;
+    (groups[key] = groups[key] || []).push(r);
   }
+
+  let html = '';
+  for (const key of Object.keys(groups).sort(semesterSortDesc)) {
+    html += `<div class="term-divider">${key}</div>`;
+    // Contract certification belongs with its term (demo carries the current one).
+    if (key === CURRENT_TERM) { const cc = studentContractRow(u.student_id); if (cc) html += cc; }
+    html += '<div class="course-list">';
+    for (const { course, ev } of groups[key]) html += studentCourseRow(course, ev);
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+// One modern course row (not a table cell) with the requested Banner-style fields.
+function studentCourseRow(course, ev) {
+  const submitted = ev && ev.status === 'submitted';
+  const unread = submitted && !isNarrativeRead(ev.id);
+  const instructors = (course.instructors && course.instructors.length ? course.instructors : ['—']).join(' / ');
+  const regPill = course.reg_status === 'Withdrawn'
+    ? '<span class="reg-pill reg-withdrawn">Withdrawn</span>'
+    : '<span class="reg-pill reg-registered">Registered</span>';
+  const meta = [
+    `CRN ${course.crn || '—'}`,
+    `${course.subject_code || ''} ${course.course_number || ''}`.trim(),
+    course.session || 'Full Term',
+    course.course_type || 'Course/Seminar/Topics',
+  ].filter(Boolean).join(' · ');
+
+  const action = submitted
+    ? `<button class="btn btn-primary btn-sm" onclick="openStudentNarrative('${course.id}')">View narrative${unread ? ' <span class="unread-badge">New</span>' : ''}</button>`
+    : (ev && ev.status === 'draft'
+        ? '<span class="pill-muted">In progress</span>'
+        : '<span class="pill-muted">Not yet available</span>');
+
   return `
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-header">
-        Contract Certification — ${CURRENT_TERM}
-        <span class="banner-ok">Certified</span>
+    <div class="course-row${unread ? ' course-row-unread' : ''}">
+      <div class="course-row-main">
+        <div class="course-row-title">${course.name}${unread ? ' <span class="unread-dot" title="Unread narrative"></span>' : ''}</div>
+        <div class="course-row-meta">${meta}</div>
+        <div class="course-row-inst">${instructors}</div>
       </div>
-      <div class="card-body">
-        <div style="display:flex;flex-wrap:wrap;gap:18px 32px;font-size:14px;margin-bottom:6px;">
-          <div><span style="color:#888;font-size:12px;display:block;">Advisor</span>${advisor?.full_name || '—'}</div>
-          <div><span style="color:#888;font-size:12px;display:block;">Contract Designation</span><strong>${desig}</strong></div>
-          <div><span style="color:#888;font-size:12px;display:block;">Certified</span>${contract.certified_at ? new Date(contract.certified_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}) : '—'}</div>
-        </div>
-        ${hasNarr ? `
-        <div class="rte-label private-label" style="margin-top:10px;">Internal Narrative Evaluation</div>
-        <div class="private-notice">A personal communication from your advisor. Only you may share it externally; it is not part of the official transcript.</div>
-        <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${contract.internal_narrative}</div></div>` : ''}
+      <div class="course-row-side">
+        ${regPill}
+        <div class="course-row-desig">${submitted ? getDesignationBadge(ev.designation) : '<span style="color:#bbb;">—</span>'}</div>
+        <div>${action}</div>
       </div>
     </div>`;
 }
 
-// Renders the student's evaluation cards, grouped by semester, applying the
-// Semester / Area / Faculty filters from the student view's filter bar.
-function renderStudentGroups() {
-  const items = window._studentItems || [];
-  const sem  = document.getElementById('sSem')?.value  || '';
-  const area = document.getElementById('sArea')?.value || '';
-  const prof = document.getElementById('sProf')?.value || '';
-  const container = document.getElementById('studentGroups');
-  if (!container) return;
-
-  const filtered = items.filter(i =>
-    (!sem  || `${i.course.semester} ${i.course.year}` === sem) &&
-    (!area || i.course.division === area) &&
-    (!prof || i.faculty?.full_name === prof));
-
-  if (filtered.length === 0) {
-    container.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;color:#888;padding:30px;">No evaluations match these filters.</div></div>';
-    return;
+// The advisor's contract certification, shown as a row within the current term.
+function studentContractRow(studentId) {
+  const contract = getContract(studentId);
+  const advisor = USE_DEMO ? demoData.profiles.find(p => p.id === demoData.students.find(s => s.id === studentId)?.advisor_id) : null;
+  if (!contract.certified) {
+    return `
+      <div class="course-row contract-row">
+        <div class="course-row-main">
+          <div class="course-row-title">Contract Certification <span class="pill-muted">Pending</span></div>
+          <div class="course-row-meta">${CURRENT_TERM} · Advisor: ${advisor?.full_name || '—'}</div>
+        </div>
+        <div class="course-row-side"><span class="pill-muted">Not yet certified</span></div>
+      </div>`;
   }
+  const unread = !isNarrativeRead('contract:' + studentId);
+  const desig = contract.designation === 'sat' ? 'Satisfactory' : (contract.designation === 'unsat' ? 'Unsatisfactory' : '—');
+  return `
+    <div class="course-row contract-row${unread ? ' course-row-unread' : ''}">
+      <div class="course-row-main">
+        <div class="course-row-title">Contract Certification${unread ? ' <span class="unread-dot" title="Unread certification"></span>' : ''}</div>
+        <div class="course-row-meta">${CURRENT_TERM} · Advisor: ${advisor?.full_name || '—'}</div>
+        <div class="course-row-inst">Contract designation: <strong>${desig}</strong></div>
+      </div>
+      <div class="course-row-side">
+        <span class="banner-ok">Certified</span>
+        <div><button class="btn btn-primary btn-sm" onclick="openStudentContract()">View certification${unread ? ' <span class="unread-badge">New</span>' : ''}</button></div>
+      </div>
+    </div>`;
+}
 
-  const groups = {};
-  for (const it of filtered) {
-    const key = `${it.course.semester} ${it.course.year}`;
-    (groups[key] = groups[key] || []).push(it);
-  }
+// Generic slide-over opener (reuses the contract/eval side panel shell).
+function openSidePanel(title, bodyHtml) {
+  const panel = document.getElementById('evalPanel');
+  const back = document.getElementById('evalPanelBackdrop');
+  document.getElementById('evalPanelTitle').textContent = title;
+  document.getElementById('evalPanelBody').innerHTML = bodyHtml;
+  back.classList.add('open'); panel.classList.add('open');
+}
 
-  let html = buildHighlightsTile(filtered);
-  for (const key of Object.keys(groups).sort(semesterSortDesc)) {
-    html += `<div class="term-divider">${key}</div>`;
-    for (const { course, faculty, ev, privateNarr } of groups[key]) {
-      const body = ev ? `
-          <div style="margin-bottom:8px;">
-            <strong>Designation:</strong> ${getDesignationBadge(ev.designation)}
-            &nbsp;&nbsp;
-            <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${new Date(ev.submitted_at).toLocaleDateString()}</span>
-          </div>
-          <div class="rte-label">Narrative Evaluation</div>
-          <div class="rte-wrapper readonly" style="margin-top:6px;">
-            <div style="padding:14px;font-size:14px;line-height:1.6;">${ev.public_narrative}</div>
-          </div>
-          ${privateNarr ? `
-          <div class="rte-label private-label" style="margin-top:12px;">Internal Narrative Evaluation</div>
-          <div class="private-notice">Shared with you, your advisor, and the course faculty. Not part of the public record.</div>
-          <div class="rte-wrapper readonly" style="margin-top:6px;">
-            <div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div>
-          </div>` : ''}`
-        : '<div style="padding:12px;color:#888;font-style:italic;">No evaluation available yet for this course.</div>';
-      html += `
-        <div class="card" id="evalcard-${course.id}">
-          <div class="card-header">
-            <span>${course.code}: ${course.name}</span>
-            <span style="font-weight:400;font-size:13px;color:#888;">${course.semester} ${course.year} · ${faculty?.full_name || ''}</span>
-          </div>
-          <div class="card-body">
-            <div class="course-desc-box"><strong>Course Description:</strong> ${course.description || ''}</div>
-            ${body}
-          </div>
-        </div>`;
-    }
-  }
-  container.innerHTML = html;
+// Student opens a single narrative in the side panel (marks it read).
+async function openStudentNarrative(courseId) {
+  const u = appState.currentUser;
+  const course = _courseById[courseId];
+  const ev = demoData.evaluations.find(e => e.student_id === u.student_id && e.course_id === courseId);
+  if (!course || !ev) return;
+  openSidePanel(`${course.code}: ${course.name}`, '<div class="loading"><div class="spinner"></div>Loading…</div>');
+  const privateNarr = await Data.getPrivateNote(ev.id);
+  const faculty = demoData.profiles.find(p => p.id === (ev.faculty_id || course.faculty_id));
+  Data.logAccess('view_evaluation', 'evaluation', ev.id, u.student_id);
+  markNarrativeRead(ev.id);
+  const incRow = ev.designation === 'inc'
+    ? `<div style="margin-top:6px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev.last_attend_date)} <span style="color:#888;">(Banner)</span></div>` : '';
+  document.getElementById('evalPanelBody').innerHTML = `
+    <div style="font-size:13px;color:#888;margin-bottom:6px;">${faculty?.full_name || ''} · ${course.semester} ${course.year}</div>
+    <div style="margin-bottom:8px;"><strong>Designation:</strong> ${getDesignationBadge(ev.designation)} &nbsp; <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${ev.submitted_at ? new Date(ev.submitted_at).toLocaleDateString() : '—'}</span></div>
+    ${incRow}
+    <div class="rte-label" style="margin-top:12px;">Narrative Evaluation</div>
+    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${ev.public_narrative || '<span style="color:#888;">Not available.</span>'}</div></div>
+    ${privateNarr ? `
+    <div class="rte-label private-label" style="margin-top:14px;">Internal Narrative Evaluation</div>
+    <div class="private-notice">Shared with you, your advisor, and the course faculty. Not part of the public record.</div>
+    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${privateNarr}</div></div>` : ''}
+    <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="printStudentNarrative('${courseId}')">Print / PDF</button></div>`;
+  renderStudentList();   // refresh the unread markers behind the panel
+}
+
+// Student opens the contract certification in the side panel (marks it read).
+function openStudentContract() {
+  const u = appState.currentUser;
+  const contract = getContract(u.student_id);
+  const advisor = demoData.profiles.find(p => p.id === demoData.students.find(s => s.id === u.student_id)?.advisor_id);
+  if (!contract.certified) return;
+  markNarrativeRead('contract:' + u.student_id);
+  const desig = contract.designation === 'sat' ? 'Satisfactory' : (contract.designation === 'unsat' ? 'Unsatisfactory' : '—');
+  const hasNarr = contract.internal_narrative && stripHtml(contract.internal_narrative).length;
+  openSidePanel(`Contract Certification — ${CURRENT_TERM}`, `
+    <div style="display:flex;flex-wrap:wrap;gap:16px 28px;font-size:14px;margin-bottom:6px;">
+      <div><span style="color:#888;font-size:12px;display:block;">Advisor</span>${advisor?.full_name || '—'}</div>
+      <div><span style="color:#888;font-size:12px;display:block;">Designation</span><strong>${desig}</strong></div>
+      <div><span style="color:#888;font-size:12px;display:block;">Certified</span>${contract.certified_at ? new Date(contract.certified_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}) : '—'}</div>
+    </div>
+    ${hasNarr ? `
+    <div class="rte-label private-label" style="margin-top:10px;">Advisor's Narrative</div>
+    <div class="private-notice">A personal communication from your advisor. Only you may share it externally; it is not part of the official transcript.</div>
+    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${contract.internal_narrative}</div></div>` : '<div style="color:#888;">No narrative was attached to this certification.</div>'}`);
+  renderStudentList();
+}
+
+// Print a single narrative (student-facing) using the official document.
+function printStudentNarrative(courseId) {
+  const u = appState.currentUser;
+  const course = _courseById[courseId];
+  const ev = demoData.evaluations.find(e => e.student_id === u.student_id && e.course_id === courseId);
+  const student = demoData.students.find(s => s.id === u.student_id);
+  const faculty = demoData.profiles.find(p => p.id === (ev?.faculty_id || course?.faculty_id));
+  if (course && ev) openEvalDocument([{ student, course, ev, faculty }], `${student?.full_name || 'Student'} — Narrative Evaluation`);
 }
 
 
@@ -3090,94 +3201,11 @@ function semesterSortDesc(a, b) {
   return semesterKey(pb[0], +pb[1]) - semesterKey(pa[0], +pa[1]);
 }
 
-// ── Evaluation highlights ────────────────────────────────────────────
-// Heuristic extraction of "strengths" and "areas to improve" sentences from a
-// narrative. No backend/API key needed (this app is static). For production,
-// this could be replaced by a Claude-powered summary via a Supabase Edge
-// Function — student360 already does an AI eval-summary server-side.
+// Strip HTML to plain text (used by the print document and read-state checks).
 function stripHtml(html) {
   const d = document.createElement('div');
   d.innerHTML = html || '';
-  return (d.textContent || '').replace(/\s+/g, ' ').trim();
-}
-const STRENGTH_CUES = /\b(exceptional|excellent|outstanding|impressive|insightful|thoughtful|sophisticated|standout|strongest|strong|mastery|generous|reliable|well[-\s](?:argued|organized|written|prepared|reasoned)|engaged|engagement|curious|rigorous|solid|clear(?:ly)?)\b/i;
-const IMPROVE_CUES = /\b(should|could|needs?\sto|struggl\w*|develop|work on|improve|push (?:past|toward|beyond)|would benefit|lack\w*|more deeply|continue (?:developing|to)|to grow|not yet|encourage\w*|hedges?|sharper|stronger thesis)\b/i;
-
-function extractHighlights(html) {
-  const sentences = stripHtml(html)
-    .split(/(?<=[.!?])\s+(?=[A-Z“"])/)
-    .map(s => s.trim())
-    .filter(s => s.length > 20);
-  const strengths = [], improvements = [];
-  for (const s of sentences) {
-    if (IMPROVE_CUES.test(s)) improvements.push(s);
-    else if (STRENGTH_CUES.test(s)) strengths.push(s);
-  }
-  return { strengths, improvements };
-}
-
-// Build the aggregated highlights tile from a student's submitted evaluations.
-// rows: array of { course, ev }. Each highlight links to #evalcard-<courseId>.
-function buildHighlightsTile(rows) {
-  const strengths = [], improvements = [];
-  for (const { course, ev } of rows) {
-    if (!ev || ev.status !== 'submitted' || !course) continue;
-    const h = extractHighlights(ev.public_narrative);
-    const ref = `${course.code}, ${course.semester} ${course.year}`;
-    h.strengths.slice(0, 2).forEach(t => strengths.push({ t, cid: course.id, ref }));
-    h.improvements.slice(0, 2).forEach(t => improvements.push({ t, cid: course.id, ref }));
-  }
-  if (!strengths.length && !improvements.length) return '';
-
-  // A citation link back to the source evaluation, embedded in the prose.
-  const cite = x => `<a class="hl-link" onclick="scrollToEval('${x.cid}')" title="Open the source evaluation">(${x.ref})</a>`;
-  // Weave the extracted sentences into a flowing paragraph, each remark followed
-  // by a link to the narrative it came from.
-  const paragraph = list => list.map(x => {
-    let t = x.t.trim();
-    if (!/[.!?]$/.test(t)) t += '.';
-    return `${t} ${cite(x)}`;
-  }).join(' ');
-
-  const strengthsPara = strengths.length
-    ? `<p class="hl-para">Across the submitted evaluations, faculty consistently note that ${paragraph(strengths)}</p>`
-    : '<p class="hl-para hl-empty">No specific strengths were surfaced from the current evaluations.</p>';
-  const improvePara = improvements.length
-    ? `<p class="hl-para">Faculty also point to areas for continued growth: ${paragraph(improvements)}</p>`
-    : '<p class="hl-para hl-empty">No specific areas to improve were surfaced from the current evaluations.</p>';
-
-  return `
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-header">
-        Evaluation Highlights
-        <span style="font-size:12px;font-weight:400;color:#888;">Summarized from the narratives · links open the source evaluation</span>
-      </div>
-      <div class="card-body">
-        <div class="hl-col-title" style="color:#1e7e34;margin-bottom:4px;">✦ Strengths</div>
-        ${strengthsPara}
-        <div class="hl-col-title" style="color:#b8860b;margin:14px 0 4px;">➜ Areas to improve</div>
-        ${improvePara}
-      </div>
-    </div>`;
-}
-
-function scrollToEval(courseId) {
-  let el = document.getElementById('evalcard-' + courseId);   // student view
-  if (!el) {
-    // advisor all-evals view: select the course's term, then open the slide-over.
-    const item = (window._advisorItems || []).find(i => i.course && i.course.id === courseId);
-    if (item) {
-      if (appState.advisorTerm !== item.termKey) selectAdvisorTerm(item.termKey);
-      if (item.ev && window._advisorStudentId) openEvalPanel(window._advisorStudentId, courseId);
-      el = document.getElementById('advtile-' + courseId);
-    }
-  }
-  if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  el.classList.remove('flash');
-  void el.offsetWidth;           // restart the animation if clicked again
-  el.classList.add('flash');
-  setTimeout(() => el.classList.remove('flash'), 1600);
+  return (d.textContent || '').replace(/s+/g, ' ').trim();
 }
 
 function getDesignationBadge(d) {
