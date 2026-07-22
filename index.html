@@ -197,13 +197,12 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .course-row-meta { font-size: 12.5px; color: #7a8494; margin-top: 3px; }
 .course-row-inst { font-size: 13px; color: #445; margin-top: 3px; }
 .course-row-side { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
-.course-row-desig { min-width: 34px; text-align: center; }
+.course-row-desig { text-align: right; }
 .reg-pill { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
 .reg-registered { background: #e6f4ea; color: #1e7e34; }
 .reg-withdrawn { background: #f1f1f3; color: #8a8f98; }
 .pill-muted { font-size: 12px; color: #9aa1ab; font-style: italic; }
 .unread-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #4a6cf7; box-shadow: 0 0 0 3px rgba(74,108,247,.18); }
-.unread-badge { display: inline-block; background: #fff; color: #4a6cf7; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; margin-left: 4px; vertical-align: middle; }
 @media (max-width: 640px) { .course-row { flex-direction: column; align-items: flex-start; } .course-row-side { width: 100%; justify-content: space-between; } }
 .flash { animation: flashcard 1.5s ease; }
 @keyframes flashcard { 0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.08); } 25%, 60% { box-shadow: 0 0 0 3px #4a6cf7; } }
@@ -869,7 +868,13 @@ function buildDemoData() {
 
   // Two student logins: pick students with current-term enrollments.
   const spring = d.students.filter(s => s.enrollments.some(cid => { const c = courseById[cid]; return c && c.semester === 'Spring' && c.year === 2026; }));
-  [spring[0], spring[1]].forEach((s, i) => { if (!s) return; d.profiles.push({ id: 'u_' + s.id, email: `student${i + 1}@ncf.edu`, full_name: s.full_name, role: 'student', is_advisor: false, division: s.aoc, student_id: s.id, login: true }); });
+  [spring[0], spring[1]].forEach((s, i) => {
+    if (!s) return;
+    d.profiles.push({ id: 'u_' + s.id, email: `student${i + 1}@ncf.edu`, full_name: s.full_name, role: 'student', is_advisor: false, division: s.aoc, student_id: s.id, login: true });
+    // Guarantee at least one co-taught course shows on each demo student's list.
+    const co = s.enrollments.map(cid => courseById[cid]).find(c => c && c.instructors && c.instructors.length === 1);
+    if (co) co.instructors.push(`${pick(FIRST)} ${pick(LAST)}`);
+  });
   // Seed a certified current-term contract for the first student login so the
   // student can see their advisor's contract certification in the demo.
   if (spring[0]) {
@@ -2235,7 +2240,6 @@ async function renderStudentView(mc) {
         <div class="card-body">
           <h3 style="margin-bottom:4px;">My Narrative Evaluations</h3>
           <div style="color:#666;font-size:14px;">${u.full_name} · ${u.n_number || ''}</div>
-          <div style="color:#888;font-size:13px;margin-top:2px;">Your courses by term. A <span class="unread-dot"></span> <strong>New</strong> marker means a narrative you haven't opened yet.</div>
         </div>
       </div>
       <div id="studentGroups"></div>`;
@@ -2287,7 +2291,7 @@ function studentCourseRow(course, ev) {
   ].filter(Boolean).join(' · ');
 
   const action = submitted
-    ? `<button class="btn btn-primary btn-sm" onclick="openStudentNarrative('${course.id}')">View narrative${unread ? ' <span class="unread-badge">New</span>' : ''}</button>`
+    ? `<button class="btn btn-primary btn-sm" onclick="openStudentNarrative('${course.id}')">View narrative</button>`
     : (ev && ev.status === 'draft'
         ? '<span class="pill-muted">In progress</span>'
         : '<span class="pill-muted">Not yet available</span>');
@@ -2301,7 +2305,7 @@ function studentCourseRow(course, ev) {
       </div>
       <div class="course-row-side">
         ${regPill}
-        <div class="course-row-desig">${submitted ? getDesignationBadge(ev.designation) : '<span style="color:#bbb;">—</span>'}</div>
+        <div class="course-row-desig">${submitted ? getDesignationPill(ev.designation) : '<span style="color:#bbb;">—</span>'}</div>
         <div>${action}</div>
       </div>
     </div>`;
@@ -2332,7 +2336,7 @@ function studentContractRow(studentId) {
       </div>
       <div class="course-row-side">
         <span class="banner-ok">Certified</span>
-        <div><button class="btn btn-primary btn-sm" onclick="openStudentContract()">View certification${unread ? ' <span class="unread-badge">New</span>' : ''}</button></div>
+        <div><button class="btn btn-primary btn-sm" onclick="openStudentContract()">View certification</button></div>
       </div>
     </div>`;
 }
@@ -2361,7 +2365,7 @@ async function openStudentNarrative(courseId) {
     ? `<div style="margin-top:6px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev.last_attend_date)} <span style="color:#888;">(Banner)</span></div>` : '';
   document.getElementById('evalPanelBody').innerHTML = `
     <div style="font-size:13px;color:#888;margin-bottom:6px;">${faculty?.full_name || ''} · ${course.semester} ${course.year}</div>
-    <div style="margin-bottom:8px;"><strong>Designation:</strong> ${getDesignationBadge(ev.designation)} &nbsp; <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${ev.submitted_at ? new Date(ev.submitted_at).toLocaleDateString() : '—'}</span></div>
+    <div style="margin-bottom:8px;"><strong>Designation:</strong> ${getDesignationPill(ev.designation)} &nbsp; <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${ev.submitted_at ? new Date(ev.submitted_at).toLocaleDateString() : '—'}</span></div>
     ${incRow}
     <div class="rte-label" style="margin-top:12px;">Narrative Evaluation</div>
     <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${ev.public_narrative || '<span style="color:#888;">Not available.</span>'}</div></div>
@@ -3220,6 +3224,16 @@ function getDesignationBadge(d) {
   };
   const [label, cls] = map[d] || ['—', ''];
   return cls ? `<span class="desig-badge ${cls}">${label}</span>` : label;
+}
+
+// Same colored pill but with the full grade description (e.g. "Strong Satisfactory"
+// instead of "SS"). Used on the student-facing landing page.
+function getDesignationPill(d) {
+  const cls = {
+    strong_sat: 'desig-satplus', sat: 'desig-sat', marginal_sat: 'desig-satminus',
+    unsat: 'desig-unsat', pass: 'desig-pass', fail: 'desig-fnc', inc: 'desig-inc',
+  }[d];
+  return cls ? `<span class="desig-badge ${cls}">${designationLabel(d)}</span>` : '—';
 }
 
 function showToast(msg, color) {
