@@ -202,6 +202,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .reg-registered { background: #e6f4ea; color: #1e7e34; }
 .reg-withdrawn { background: #f1f1f3; color: #8a8f98; }
 .pill-muted { font-size: 12px; color: #9aa1ab; font-style: italic; }
+.row-deadline { font-size: 12.5px; color: #b8860b; margin-top: 4px; }
 .unread-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #4a6cf7; box-shadow: 0 0 0 3px rgba(74,108,247,.18); }
 @media (max-width: 640px) { .course-row { flex-direction: column; align-items: flex-start; } .course-row-side { width: 100%; justify-content: space-between; } }
 .flash { animation: flashcard 1.5s ease; }
@@ -521,9 +522,6 @@ function deadlineLabel(term) {
   const d = registrarDeadline(term);
   return d ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'the published Registrar deadline';
 }
-// Absolute URL to the NCF "N" shield (works under file:// and http(s)://, and in
-// print windows opened via document.write). Used on official evaluation documents.
-function ncfShieldUrl() { return new URL('assets/NCF Shield RGB_no color copy.png', location.href).href; }
 
 const USE_DEMO = CONFIG.demoMode || CONFIG.supabaseUrl.includes('YOUR_');
 let _supabase = null;
@@ -735,6 +733,21 @@ function buildDemoData() {
     const mon = c.semester === 'Fall' ? '11' : '04';
     return `${c.year}-${mon}-${String(day).padStart(2, '0')}`;
   };
+  // Deadline by which an Incomplete must be finished (roughly mid-way through
+  // the following term).
+  const incDeadline = (c) => c.semester === 'Fall' ? `${c.year + 1}-02-15` : `${c.year}-09-15`;
+  // Optional GPA-proxy a student may request (grad-school applications, etc.).
+  const SUPP = ['A', 'A-', 'B+', 'B', 'B-', 'C+'];
+  // Free-text component that advisors often attach to the contract criteria count.
+  const CRITERIA_TEXT = [
+    'I will attend all scheduled advising meetings.',
+    'I will complete the thesis prospectus by the end of the term.',
+    'I will submit a draft of each tutorial paper two weeks before the deadline.',
+    'I will meet weekly with my advisor to review progress.',
+    'I will complete the outstanding ISP requirement this January.',
+    'I will remember to feed my cat.',
+    'I will maintain satisfactory progress in all four contract activities.',
+  ];
 
   // ── Filler prose (Lorem Ipsum) for realistic-length narratives ──
   const LOREM = ('lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt culpa qui officia deserunt mollit anim id est laborum sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium totam rem aperiam eaque ipsa quae ab illo inventore veritatis quasi architecto beatae vitae dicta sunt explicabo nemo enim ipsam voluptatem quia voluptas aspernatur aut odit fugit consequuntur magni dolores eos ratione sequi nesciunt neque porro quisquam dolorem adipisci numquam eius modi tempora incidunt magnam quaerat').split(' ');
@@ -820,7 +833,11 @@ function buildDemoData() {
   // Students (anonymized IDs → readable fake display names; real year/AOC/advisor)
   const studByAnon = {};
   for (const s of A.students) {
-    const stud = { id: s.id, n_number: s.n_number, full_name: `${pick(FIRST)} ${pick(LAST)}`, advisor_id: s.advisor_id, year_level: s.year_level, contracts_completed: Object.keys(s.cc || {}).length, aoc: s.aoc, enrollments: [], attrs: s.attrs || [], contract_criteria: (s.cc && s.cc['Spring 2026']) || '' };
+    // Contract criteria is a count ("3 / 4") plus, often, a free-text commitment
+    // the student and advisor agreed on. Both parts must survive to the document.
+    let criteria = (s.cc && s.cc['Spring 2026']) || '';
+    if (criteria && rnd() < 0.45) criteria = `${criteria} — ${pick(CRITERIA_TEXT)}`;
+    const stud = { id: s.id, n_number: s.n_number, full_name: `${pick(FIRST)} ${pick(LAST)}`, advisor_id: s.advisor_id, year_level: s.year_level, contracts_completed: Object.keys(s.cc || {}).length, aoc: s.aoc, enrollments: [], attrs: s.attrs || [], contract_criteria: criteria };
     d.students.push(stud); studByAnon[s.anon] = stud;
   }
 
@@ -842,6 +859,8 @@ function buildDemoData() {
       id, student_id: stud.id, course_id: course.id, faculty_id: course.faculty_id,
       designation: e.d || '',
       last_attend_date: e.d === 'inc' ? incLastDay(course, eseq) : null,
+      completion_deadline: e.d === 'inc' ? incDeadline(course) : null,
+      supp_designation: (submitted && rnd() < 0.12) ? pick(SUPP) : '',
       public_narrative: submitted ? mkLongNarrative(name) : '',
       status, submitted_at: submitted ? termDate(course) : null, updated_at: termDate(course),
     });
@@ -882,7 +901,21 @@ function buildDemoData() {
       student_id: spring[0].id, term: 'Spring 2026', designation: 'sat',
       certified: true, certified_at: '2026-05-09T14:20:00',
       banner_pushed: true, banner_pushed_at: '2026-05-09T14:22:00',
-      internal_narrative: `<p>${spring[0].full_name.split(' ')[0]} has met the terms of the Spring 2026 contract. Progress toward the area of concentration is on track, and the semester's coursework was completed satisfactorily. We discussed goals for the coming term during advising.</p>`,
+      enrollment_status: 'Enrolled', contract_criteria: spring[0].contract_criteria || '3 / 4',
+      completion_deadline: null,
+      internal_narrative: `<p>${spring[0].full_name.split(' ')[0]},</p><p>You have met the terms of the Spring 2026 contract. Progress toward the area of concentration is on track, and the semester's coursework was completed satisfactorily. We discussed goals for the coming term during advising.</p>`,
+    };
+  }
+  // Second student login: an INCOMPLETE contract, so the completion deadline shows.
+  if (spring[1]) {
+    d.contracts[spring[1].id] = {
+      student_id: spring[1].id, term: 'Spring 2026', designation: 'inc',
+      certified: true, certified_at: '2026-05-09T15:05:00',
+      banner_pushed: true, banner_pushed_at: '2026-05-09T15:06:00',
+      enrollment_status: 'Enrolled',
+      contract_criteria: spring[1].contract_criteria || '2 / 4 — I will complete the outstanding ISP requirement this January.',
+      completion_deadline: '2026-09-15',
+      internal_narrative: `<p>${spring[1].full_name.split(' ')[0]},</p><p>Two contract activities remain outstanding at the close of the term. We agreed on a plan to finish them; please keep to the schedule we set so the contract can be certified as satisfactory.</p>`,
     };
   }
 
@@ -1043,10 +1076,15 @@ const Data = {
         course_id: courseId,
         faculty_id: facultyId || appState.currentUser?.id,
         designation: evalData.designation,
-        // Last date of attendance from Banner — only meaningful for an Incomplete.
+        // Last date of attendance / completion deadline — only for an Incomplete.
         last_attend_date: evalData.designation === 'inc'
           ? (evalData.lastAttendDate ?? (idx >= 0 ? demoData.evaluations[idx].last_attend_date : null))
           : null,
+        completion_deadline: evalData.designation === 'inc'
+          ? (evalData.completionDeadline ?? (idx >= 0 ? demoData.evaluations[idx].completion_deadline : null))
+          : null,
+        // Optional GPA-proxy the student may have requested.
+        supp_designation: evalData.suppDesignation ?? (idx >= 0 ? demoData.evaluations[idx].supp_designation : ''),
         public_narrative: evalData.publicNarrative,
         status: evalData.status,
         submitted_at: evalData.status === 'submitted' ? (idx >= 0 && demoData.evaluations[idx].submitted_at ? demoData.evaluations[idx].submitted_at : now) : null,
@@ -1364,6 +1402,11 @@ function designationLabel(d) {
   return { strong_sat: 'Strong Satisfactory', sat: 'Satisfactory', marginal_sat: 'Marginal Satisfactory', unsat: 'Unsatisfactory', pass: 'Pass', fail: 'Fail', inc: 'Incomplete' }[d] || '—';
 }
 
+// Contract-level designation (Sat / Unsat / Incomplete).
+function contractDesignationLabel(d) {
+  return { sat: 'Satisfactory', unsat: 'Unsatisfactory', inc: 'Incomplete' }[d] || '—';
+}
+
 // Format a Banner last-day-of-attendance date (YYYY-MM-DD) for display.
 function fmtAttend(d) {
   if (!d) return '—';
@@ -1376,9 +1419,12 @@ function fmtAttend(d) {
 // Show the Last Day of Attendance field only when the designation is Incomplete.
 function toggleAttendField() {
   const sel = document.getElementById('designationSelect');
-  const field = document.getElementById('attendField');
-  if (!sel || !field) return;
-  field.style.display = sel.value === 'inc' ? '' : 'none';
+  if (!sel) return;
+  const show = sel.value === 'inc' ? '' : 'none';
+  const attend = document.getElementById('attendField');
+  const deadline = document.getElementById('deadlineField');
+  if (attend) attend.style.display = show;
+  if (deadline) deadline.style.display = show;
   markDirty();
 }
 
@@ -1820,6 +1866,20 @@ async function renderEvaluationForm(mc) {
                 : `<input type="date" class="designation-select" id="attendDate" value="${ev?.last_attend_date || ''}" onchange="markDirty()">`}
               <div style="font-size:11px;color:#888;margin-top:3px;">Required for an Incomplete — the student's last date of academic attendance.</div>
             </div>
+            <div class="eval-field" id="deadlineField" style="${designation==='inc' ? '' : 'display:none;'}">
+              <label>Completion Deadline</label>
+              ${locked
+                ? `<div class="field-value">${ev?.completion_deadline ? fmtAttend(ev.completion_deadline) : '—'}</div>`
+                : `<input type="date" class="designation-select" id="deadlineDate" value="${ev?.completion_deadline || ''}" onchange="markDirty()">`}
+              <div style="font-size:11px;color:#888;margin-top:3px;">Date by which the incomplete work must be finished.</div>
+            </div>
+            <div class="eval-field">
+              <label>Supplementary Designation <span style="font-weight:400;color:#888;">(GPA-proxy)</span></label>
+              ${locked
+                ? `<div class="field-value">${ev?.supp_designation || '—'}</div>`
+                : `<input type="text" class="designation-select" id="suppDesig" maxlength="4" placeholder="e.g. A-" value="${ev?.supp_designation || ''}" onchange="markDirty()">`}
+              <div style="font-size:11px;color:#888;margin-top:3px;">Optional — only if the student requested one.</div>
+            </div>
           </div>
 
           <div class="course-desc-box"><strong>Course Description:</strong> ${course.description}</div>
@@ -1910,6 +1970,8 @@ async function performSave(status, showMsg, opts = {}) {
   const publicNarr     = _publicQuill.root.innerHTML;
   const privateNarr    = _privateQuill ? _privateQuill.root.innerHTML : undefined;
   const lastAttendDate = document.getElementById('attendDate')?.value || '';
+  const completionDeadline = document.getElementById('deadlineDate')?.value || '';
+  const suppDesignation = document.getElementById('suppDesig')?.value.trim() || '';
 
   if (status === 'submitted' && opts.requireDesignation !== false && !designation) {
     showToast('Please select a course designation before submitting.', '#dc3545');
@@ -1925,7 +1987,7 @@ async function performSave(status, showMsg, opts = {}) {
   const saved = await Data.saveEvaluation(
     appState.selectedStudentId,
     appState.selectedCourseId,
-    { designation, lastAttendDate, publicNarrative: publicNarr, privateNarrative: privateNarr, status },
+    { designation, lastAttendDate, completionDeadline, suppDesignation, publicNarrative: publicNarr, privateNarrative: privateNarr, status },
     appState.currentUser?.id
   );
 
@@ -1987,90 +2049,195 @@ async function saveSubmittedCorrection() {
   Data.logAccess('amend_evaluation', 'evaluation', appState.currentEvalId, appState.selectedStudentId);
 }
 
-// Open a redesigned, official-looking evaluation document for print / save-as-PDF.
-function printEvaluation() {
+// Open the official evaluation document for print / save-as-PDF.
+async function printEvaluation() {
   const student = USE_DEMO ? demoData.students.find(s => s.id === appState.selectedStudentId) : null;
   const course  = USE_DEMO ? demoData.courses.find(c => c.id === appState.selectedCourseId) : null;
   const ev      = USE_DEMO ? demoData.evaluations.find(e => e.student_id === appState.selectedStudentId && e.course_id === appState.selectedCourseId) : null;
   if (!student || !course) { window.print(); return; }
   const faculty = USE_DEMO ? demoData.profiles.find(p => p.id === (ev?.faculty_id || course.faculty_id)) : null;
-  openEvalDocument([{ student, course, ev, faculty }], `${student.full_name} — Narrative Evaluation`);
+  // Registrar / PO Office / Admin never see the Internal Narrative Evaluation.
+  const role = appState.currentUser?.role;
+  const noInternal = role === 'registrar' || role === 'po_office' || role === 'admin';
+  const privateNarr = (!noInternal && ev?.id) ? await Data.getPrivateNote(ev.id) : '';
+  openEvalDocument(
+    [{ student, course, ev, faculty, privateNarr, internalAccess: !noInternal }],
+    `${student.full_name} — Narrative Evaluation`
+  );
 }
 
-// ── Official narrative-evaluation document (print / PDF) ──────────────
-// Renders one evaluation per page on NCF letterhead (the "N" shield), suitable
-// for the Registrar's records. `entries` = [{ student, course, ev, faculty }].
+// ── Official NCF narrative-evaluation documents (print / PDF) ─────────
+// Layout mirrors the Registrar's published "Student Evaluation" and
+// "Contract Certification" documents, on NCF letterhead, one per page.
+
+// Absolute URL to the NCF horizontal letterhead logo (works under file:// and
+// http(s)://, and inside a print window opened via document.write).
+function ncfLetterheadUrl() { return new URL('assets/NCF Logo Horiz BLACK copy.jpg', location.href).href; }
+
+// Fixed statements that must appear verbatim on the official documents.
+const EXTERNAL_STATEMENT = 'As a reminder, this External Narrative Evaluation may be viewed by external audiences and may be requested as a component of the official academic transcript at the request of a student first entering New College in fall 2016 and later.';
+const INTERNAL_STATEMENT = 'The content of this Internal Narrative Evaluation is a personal communication between the professor and the student. Only the student may provide this evaluation to external audiences. An Internal Narrative Evaluation is never included as a component of the official academic transcript.';
+const FOOTER_STATEMENT = 'At the conclusion of each term, students receive an assessment of their performance followed by a narrative evaluation from the faculty member overseeing each educational activity. Beginning with the fall 2016 incoming student cohort, narrative evaluations may be provided as a component of the official transcript, at the request of the student. Students who first entered New College prior to fall 2016 are responsible for providing narrative evaluations separately from the official academic transcript, if needed.';
+
+// "Printed: 07/22/2026 09:24:33 am" — matches the Registrar's format.
+function printedTimestamp() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  let h = d.getHours();
+  const ampm = h < 12 ? 'am' : 'pm';
+  h = h % 12 || 12;
+  return `Printed: ${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()} ${p(h)}:${p(d.getMinutes())}:${p(d.getSeconds())} ${ampm}`;
+}
+
+function docMetaLine(label, value) {
+  return `<div class="doc-line"><span class="doc-lbl">${label}:</span> ${value == null || value === '' ? '' : value}</div>`;
+}
+
+// Internal-narrative block: the statement plus the narrative, "not found", or a
+// no-access note (Registrar / PO Office never see internal narratives).
+function internalBlock(entry) {
+  let body;
+  if (entry.internalAccess === false) {
+    body = '<p class="doc-none">Not available to this office.</p>';
+  } else if (entry.privateNarr && stripHtml(entry.privateNarr).length) {
+    body = entry.privateNarr;
+  } else {
+    body = '<p class="doc-none">No internal narrative evaluation found.</p>';
+  }
+  return `
+    <div class="doc-h2">Internal Narrative Evaluation</div>
+    <div class="doc-stmt">${INTERNAL_STATEMENT}</div>
+    <div class="doc-body">${body}</div>`;
+}
+
+// ── Course ("Student Evaluation") page ──
 function evalDocumentPageHtml(entry) {
   const { student, course, ev, faculty } = entry;
   const term = `${course.semester} ${course.year}`;
-  const desig = ev?.designation ? designationLabel(ev.designation) : '—';
-  const incRow = ev?.designation === 'inc'
-    ? `<tr><th>Last Day of Attendance</th><td>${fmtAttend(ev.last_attend_date)} <span style="color:#888;">(Banner)</span></td></tr>` : '';
-  const submitted = ev?.submitted_at ? new Date(ev.submitted_at).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) : '—';
-  const narr = ev?.public_narrative && stripHtml(ev.public_narrative).length
-    ? ev.public_narrative : '<p style="color:#888;font-style:italic;">No narrative evaluation on record.</p>';
+  const instructors = (course.instructors && course.instructors.length)
+    ? course.instructors.join(' / ')
+    : (faculty?.full_name || '');
+  const narr = (ev?.public_narrative && stripHtml(ev.public_narrative).length)
+    ? ev.public_narrative : '<p class="doc-none">No external narrative evaluation found.</p>';
+
   return `
     <section class="doc-page">
-      <header class="doc-head">
-        <img class="doc-shield" src="${ncfShieldUrl()}" alt="New College of Florida">
-        <div class="doc-head-text">
-          <div class="doc-inst">New College of Florida</div>
-          <div class="doc-sub">Office of the Registrar · Narrative Evaluation</div>
-        </div>
-      </header>
-      <h1 class="doc-title">Narrative Evaluation of Academic Performance</h1>
-      <table class="doc-meta">
-        <tr><th>Student</th><td>${student.full_name}</td><th>N-Number</th><td>${student.n_number}</td></tr>
-        <tr><th>Course</th><td>${course.code}: ${course.name}</td><th>Term</th><td>${term}</td></tr>
-        <tr><th>Instructor</th><td>${faculty?.full_name || '—'}</td><th>Designation</th><td><strong>${desig}</strong></td></tr>
-        ${incRow}
-      </table>
-      <div class="doc-section-label">Course Description</div>
-      <div class="doc-desc">${course.description || '—'}</div>
-      <div class="doc-section-label">Narrative Evaluation</div>
-      <div class="doc-narr">${narr}</div>
-      <footer class="doc-foot">
-        <div>Submitted: ${submitted}</div>
-        <div>This document is part of the student's official academic record. · New College of Florida</div>
-      </footer>
+      <img class="doc-logo" src="${ncfLetterheadUrl()}" alt="New College of Florida">
+      <div class="doc-title">Student Evaluation</div>
+      <div class="doc-student">${student.full_name} (${student.n_number})</div>
+      <div class="doc-context">${term} ${course.name} (${course.crn || ''})</div>
+
+      <div class="doc-meta">
+        ${docMetaLine('Division', course.division || '')}
+        ${docMetaLine('Subject Code', course.subject_code || '')}
+        ${docMetaLine('Course Number', course.course_number || '')}
+        ${docMetaLine('Type', course.course_type || '')}
+        ${docMetaLine('Session', course.session || '')}
+        ${docMetaLine('Instructor', instructors)}
+        ${docMetaLine('Registration Status', course.reg_status || '')}
+        ${docMetaLine('Designation', ev?.designation ? designationLabel(ev.designation) : '')}
+        ${docMetaLine('Completion Deadline', (ev?.designation === 'inc' && ev.completion_deadline) ? fmtAttend(ev.completion_deadline) : '')}
+        ${docMetaLine('Supplementary Designation (GPA-proxy)', ev?.supp_designation || '')}
+      </div>
+
+      <div class="doc-h2">External Narrative Evaluation</div>
+      <div class="doc-stmt">${EXTERNAL_STATEMENT}</div>
+      <div class="doc-body">${narr}</div>
+
+      ${internalBlock(entry)}
+
+      <div class="doc-footnote">${FOOTER_STATEMENT}</div>
+      <div class="doc-printed">${printedTimestamp()}</div>
     </section>`;
 }
 
+// ── Contract Certification page ──
+function contractDocumentPageHtml(entry) {
+  const { student, contract, advisor, term } = entry;
+  const narr = (contract.internal_narrative && stripHtml(contract.internal_narrative).length)
+    ? contract.internal_narrative : '<p class="doc-none">No internal narrative evaluation found.</p>';
+
+  return `
+    <section class="doc-page">
+      <img class="doc-logo" src="${ncfLetterheadUrl()}" alt="New College of Florida">
+      <div class="doc-title">Contract Certification</div>
+      <div class="doc-student">${student.full_name} (${student.n_number})</div>
+      <div class="doc-context">${term || contract.term || CURRENT_TERM}</div>
+
+      <ul class="doc-bullets">
+        <li><span class="doc-lbl">Advisor:</span> ${advisor?.full_name || ''}</li>
+        <li><span class="doc-lbl">Enrollment Status:</span> ${contract.enrollment_status || 'Enrolled'}</li>
+        <li><span class="doc-lbl">Contract Criteria:</span> ${contract.contract_criteria || ''}</li>
+        <li><span class="doc-lbl">Designation:</span> ${contractDesignationLabel(contract.designation)}</li>
+        <li><span class="doc-lbl">Completion Deadline:</span> ${(contract.designation === 'inc' && contract.completion_deadline) ? fmtAttend(contract.completion_deadline) : ''}</li>
+      </ul>
+
+      <div class="doc-h2">Internal Narrative Evaluation</div>
+      <div class="doc-stmt">${INTERNAL_STATEMENT}</div>
+      <div class="doc-body">${narr}</div>
+
+      <div class="doc-printed">${printedTimestamp()}</div>
+    </section>`;
+}
+
+// Shared stylesheet for both document types.
+const DOC_STYLES = `
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; font-family: Arial, Helvetica, sans-serif; color: #1c1c1c; font-size: 13px; }
+  .doc-page { width: 8.5in; min-height: 10.6in; padding: 0.5in 0.55in; margin: 0.25in auto; border: 1px solid #d8d8d8; border-radius: 14px; page-break-after: always; }
+  .doc-page:last-child { page-break-after: auto; }
+  .doc-logo { width: 330px; max-width: 62%; height: auto; display: block; margin-bottom: 22px; }
+  .doc-title { color: #a4123f; font-weight: 700; font-size: 15px; letter-spacing: 1px; margin-bottom: 6px; }
+  .doc-student { color: #1a4f9c; font-weight: 700; font-size: 15px; letter-spacing: .8px; margin-bottom: 20px; }
+  .doc-context { color: #333; font-weight: 700; font-size: 13.5px; letter-spacing: .8px; margin-bottom: 14px; }
+  .doc-meta { margin-bottom: 20px; }
+  .doc-line { margin: 5px 0; font-size: 12.5px; }
+  .doc-lbl { font-style: italic; }
+  .doc-bullets { margin: 0 0 20px; padding-left: 22px; }
+  .doc-bullets li { margin: 5px 0; font-size: 12.5px; }
+  .doc-h2 { font-weight: 700; font-size: 12.5px; margin: 18px 0 5px; }
+  .doc-stmt { color: #2a56c6; font-size: 11px; line-height: 1.55; margin-bottom: 12px; }
+  .doc-body { font-size: 12.5px; line-height: 1.6; }
+  .doc-body p { margin: 0 0 11px; }
+  .doc-none { color: #2a56c6; font-style: italic; }
+  .doc-footnote { color: #2a56c6; font-size: 10px; line-height: 1.55; margin-top: 26px; }
+  .doc-printed { color: #2a56c6; font-size: 10px; margin-top: 14px; }
+  @page { size: letter; margin: 0.2in; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .doc-page { border: none; margin: 0; padding: 0.35in 0.45in; }
+  }`;
+
+// Open a print window containing the given pages. `entries` may mix course
+// evaluations ({student, course, ev, faculty, privateNarr}) and contract
+// certifications ({type:'contract', student, contract, advisor, term}).
 function openEvalDocument(entries, title) {
-  const valid = entries.filter(e => e && e.student && e.course);
+  const valid = (entries || []).filter(e => e && e.student && (e.course || e.contract));
   if (!valid.length) { showToast('Nothing to print.', '#dc3545'); return; }
   const w = window.open('', '_blank');
   if (!w) { showToast('Allow pop-ups to generate the PDF.', '#dc3545'); return; }
-  const pages = valid.map(evalDocumentPageHtml).join('');
+  const pages = valid.map(e => e.type === 'contract' ? contractDocumentPageHtml(e) : evalDocumentPageHtml(e)).join('');
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
-    <style>
-      * { box-sizing: border-box; }
-      body { margin: 0; font-family: Georgia, 'Times New Roman', serif; color: #1c2430; }
-      .doc-page { width: 8.5in; min-height: 11in; padding: 0.85in 0.9in; margin: 0 auto; page-break-after: always; display: flex; flex-direction: column; }
-      .doc-page:last-child { page-break-after: auto; }
-      .doc-head { display: flex; align-items: center; gap: 16px; border-bottom: 3px solid #1e2a4a; padding-bottom: 14px; }
-      .doc-shield { width: 58px; height: auto; }
-      .doc-inst { font-size: 20px; font-weight: 700; color: #1e2a4a; letter-spacing: .2px; }
-      .doc-sub { font-size: 12px; color: #55606f; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 3px; }
-      .doc-title { font-size: 17px; text-align: center; margin: 26px 0 20px; color: #1e2a4a; font-weight: 700; }
-      .doc-meta { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-family: Arial, sans-serif; font-size: 12.5px; }
-      .doc-meta th { text-align: left; color: #55606f; font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: .5px; padding: 6px 10px 6px 0; white-space: nowrap; vertical-align: top; width: 1%; }
-      .doc-meta td { padding: 6px 24px 6px 0; vertical-align: top; }
-      .doc-section-label { font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1e2a4a; border-bottom: 1px solid #ccd3dd; padding-bottom: 4px; margin: 22px 0 10px; }
-      .doc-desc { font-size: 13px; color: #444; font-style: italic; }
-      .doc-narr { font-size: 14px; line-height: 1.7; }
-      .doc-narr p { margin: 0 0 12px; }
-      .doc-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid #ccd3dd; display: flex; justify-content: space-between; font-family: Arial, sans-serif; font-size: 10px; color: #7a8492; gap: 16px; }
-      @page { size: letter; margin: 0; }
-      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    </style></head><body>${pages}
+    <style>${DOC_STYLES}</style></head><body>${pages}
     <script>
-      // Give the shield image a moment to load before invoking the print dialog.
-      (function(){ var done=false; function go(){ if(done) return; done=true; setTimeout(function(){ window.focus(); window.print(); }, 120); }
-        var img=document.querySelector('.doc-shield');
-        if(img && !img.complete){ img.addEventListener('load',go); img.addEventListener('error',go); setTimeout(go,1200);} else { go(); } })();
+      // Wait for the letterhead to load before opening the print dialog.
+      (function(){ var done=false; function go(){ if(done) return; done=true; setTimeout(function(){ window.focus(); window.print(); }, 150); }
+        var img=document.querySelector('.doc-logo');
+        if(img && !img.complete){ img.addEventListener('load',go); img.addEventListener('error',go); setTimeout(go,1500);} else { go(); } })();
     <\/script></body></html>`);
   w.document.close();
+}
+
+// Print a contract certification (advisor or student view).
+function printContractCertification(studentId) {
+  const student = USE_DEMO ? demoData.students.find(s => s.id === studentId) : null;
+  if (!student) return;
+  const contract = getContract(studentId);
+  const advisor = USE_DEMO ? demoData.profiles.find(p => p.id === student.advisor_id) : null;
+  openEvalDocument(
+    [{ type: 'contract', student, contract, advisor, term: contract.term || CURRENT_TERM }],
+    `${student.full_name} — Contract Certification`
+  );
 }
 
 
@@ -2296,12 +2463,17 @@ function studentCourseRow(course, ev) {
         ? '<span class="pill-muted">In progress</span>'
         : '<span class="pill-muted">Not yet available</span>');
 
+  // An Incomplete carries the deadline by which the work must be finished.
+  const deadline = (ev && ev.designation === 'inc' && ev.completion_deadline)
+    ? `<div class="row-deadline">Completion Deadline: <strong>${fmtAttend(ev.completion_deadline)}</strong></div>` : '';
+
   return `
     <div class="course-row${unread ? ' course-row-unread' : ''}">
       <div class="course-row-main">
         <div class="course-row-title">${course.name}${unread ? ' <span class="unread-dot" title="Unread narrative"></span>' : ''}</div>
         <div class="course-row-meta">${meta}</div>
         <div class="course-row-inst">${instructors}</div>
+        ${deadline}
       </div>
       <div class="course-row-side">
         ${regPill}
@@ -2315,27 +2487,39 @@ function studentCourseRow(course, ev) {
 function studentContractRow(studentId) {
   const contract = getContract(studentId);
   const advisor = USE_DEMO ? demoData.profiles.find(p => p.id === demoData.students.find(s => s.id === studentId)?.advisor_id) : null;
+  // Criteria can carry a wordy free-text component alongside the count.
+  const criteriaLine = contract.contract_criteria
+    ? `<div class="course-row-inst"><span style="color:#7a8494;">Contract Criteria:</span> ${contract.contract_criteria}</div>` : '';
+  const enrollLine = `<span style="color:#7a8494;">Enrollment Status:</span> ${contract.enrollment_status || 'Enrolled'}`;
+
   if (!contract.certified) {
     return `
       <div class="course-row contract-row">
         <div class="course-row-main">
           <div class="course-row-title">Contract Certification <span class="pill-muted">Pending</span></div>
           <div class="course-row-meta">${CURRENT_TERM} · Advisor: ${advisor?.full_name || '—'}</div>
+          <div class="course-row-inst">${enrollLine}</div>
+          ${criteriaLine}
         </div>
         <div class="course-row-side"><span class="pill-muted">Not yet certified</span></div>
       </div>`;
   }
   const unread = !isNarrativeRead('contract:' + studentId);
-  const desig = contract.designation === 'sat' ? 'Satisfactory' : (contract.designation === 'unsat' ? 'Unsatisfactory' : '—');
+  const desig = contractDesignationLabel(contract.designation);
+  const deadline = (contract.designation === 'inc' && contract.completion_deadline)
+    ? `<div class="row-deadline">Completion Deadline: <strong>${fmtAttend(contract.completion_deadline)}</strong></div>` : '';
   return `
     <div class="course-row contract-row${unread ? ' course-row-unread' : ''}">
       <div class="course-row-main">
         <div class="course-row-title">Contract Certification${unread ? ' <span class="unread-dot" title="Unread certification"></span>' : ''}</div>
         <div class="course-row-meta">${CURRENT_TERM} · Advisor: ${advisor?.full_name || '—'}</div>
-        <div class="course-row-inst">Contract designation: <strong>${desig}</strong></div>
+        <div class="course-row-inst">${enrollLine}</div>
+        ${criteriaLine}
+        ${deadline}
       </div>
       <div class="course-row-side">
         <span class="banner-ok">Certified</span>
+        <div class="course-row-desig">${contract.designation === 'inc' ? '<span class="desig-badge desig-inc">Incomplete</span>' : `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : 'desig-unsat'}">${desig}</span>`}</div>
         <div><button class="btn btn-primary btn-sm" onclick="openStudentContract()">View certification</button></div>
       </div>
     </div>`;
@@ -2384,29 +2568,40 @@ function openStudentContract() {
   const advisor = demoData.profiles.find(p => p.id === demoData.students.find(s => s.id === u.student_id)?.advisor_id);
   if (!contract.certified) return;
   markNarrativeRead('contract:' + u.student_id);
-  const desig = contract.designation === 'sat' ? 'Satisfactory' : (contract.designation === 'unsat' ? 'Unsatisfactory' : '—');
+  const desig = contractDesignationLabel(contract.designation);
   const hasNarr = contract.internal_narrative && stripHtml(contract.internal_narrative).length;
   openSidePanel(`Contract Certification — ${CURRENT_TERM}`, `
-    <div style="display:flex;flex-wrap:wrap;gap:16px 28px;font-size:14px;margin-bottom:6px;">
+    <div style="display:flex;flex-wrap:wrap;gap:16px 28px;font-size:14px;margin-bottom:10px;">
       <div><span style="color:#888;font-size:12px;display:block;">Advisor</span>${advisor?.full_name || '—'}</div>
+      <div><span style="color:#888;font-size:12px;display:block;">Enrollment Status</span>${contract.enrollment_status || 'Enrolled'}</div>
       <div><span style="color:#888;font-size:12px;display:block;">Designation</span><strong>${desig}</strong></div>
       <div><span style="color:#888;font-size:12px;display:block;">Certified</span>${contract.certified_at ? new Date(contract.certified_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}) : '—'}</div>
     </div>
+    <div style="font-size:13.5px;margin-bottom:6px;"><span style="color:#888;">Contract Criteria:</span> ${contract.contract_criteria || '—'}</div>
+    ${(contract.designation === 'inc' && contract.completion_deadline)
+      ? `<div class="row-deadline" style="margin-bottom:6px;">Completion Deadline: <strong>${fmtAttend(contract.completion_deadline)}</strong></div>` : ''}
     ${hasNarr ? `
     <div class="rte-label private-label" style="margin-top:10px;">Advisor's Narrative</div>
     <div class="private-notice">A personal communication from your advisor. Only you may share it externally; it is not part of the official transcript.</div>
-    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${contract.internal_narrative}</div></div>` : '<div style="color:#888;">No narrative was attached to this certification.</div>'}`);
+    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${contract.internal_narrative}</div></div>` : '<div style="color:#888;">No narrative was attached to this certification.</div>'}
+    <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="printContractCertification('${u.student_id}')">Print / PDF</button></div>`);
   renderStudentList();
 }
 
 // Print a single narrative (student-facing) using the official document.
-function printStudentNarrative(courseId) {
+async function printStudentNarrative(courseId) {
   const u = appState.currentUser;
   const course = _courseById[courseId];
   const ev = demoData.evaluations.find(e => e.student_id === u.student_id && e.course_id === courseId);
   const student = demoData.students.find(s => s.id === u.student_id);
   const faculty = demoData.profiles.find(p => p.id === (ev?.faculty_id || course?.faculty_id));
-  if (course && ev) openEvalDocument([{ student, course, ev, faculty }], `${student?.full_name || 'Student'} — Narrative Evaluation`);
+  if (!course || !ev) return;
+  // The student sees their own Internal Narrative Evaluation.
+  const privateNarr = await Data.getPrivateNote(ev.id);
+  openEvalDocument(
+    [{ student, course, ev, faculty, privateNarr }],
+    `${student?.full_name || 'Student'} — Narrative Evaluation`
+  );
 }
 
 
@@ -2530,7 +2725,15 @@ function openBrowseRow(studentId, courseId, facultyId) {
 
 // Contract store (demo). In production a `contracts` table would back this.
 function getContract(studentId) {
-  const base = { student_id: studentId, term: CURRENT_TERM, designation: '', certified: false, certified_at: null, banner_pushed: false, banner_pushed_at: null };
+  const stu = USE_DEMO ? demoData.students.find(s => s.id === studentId) : null;
+  const base = {
+    student_id: studentId, term: CURRENT_TERM, designation: '', certified: false, certified_at: null,
+    banner_pushed: false, banner_pushed_at: null,
+    // Shown on the contract listing and on the certification document.
+    enrollment_status: 'Enrolled',
+    contract_criteria: stu?.contract_criteria || '',
+    completion_deadline: null,   // only meaningful for an incomplete contract
+  };
   if (USE_DEMO) return Object.assign(base, demoData.contracts[studentId] || {});
   return base;
 }
@@ -2557,7 +2760,7 @@ async function renderAdviseesList(mc) {
       const isSenior = s.year_level === 'Fourth Year';
       const contract = getContract(s.id);
       const standing = studentStanding(s.id);
-      const desig = contract.designation ? (contract.designation === 'sat' ? 'Satisfactory' : 'Unsatisfactory') : '—';
+      const desig = contractDesignationLabel(contract.designation);
       return `<tr class="clickable${isSenior ? ' senior' : ''}" onclick="navToContract('${s.id}')">
         <td>${i + 1}</td>
         <td>${s.n_number}</td>
@@ -2657,10 +2860,10 @@ function renderContractView(mc) {
         <div style="color:#666;font-size:13px;margin:2px 0 10px;">${CURRENT_TERM}</div>
         <ul style="font-size:13px;color:#444;line-height:1.9;margin-left:18px;">
           <li><em>Advisor:</em> ${advisor?.full_name || '—'}</li>
-          <li><em>Enrollment Status:</em> Enrolled</li>
-          <li><em>Contract Criteria:</em> ${student.contract_criteria || '—'}</li>
-          <li><em>Designation:</em> ${contract.designation ? (contract.designation === 'sat' ? 'Satisfactory' : 'Unsatisfactory') : '—'}</li>
-          <li><em>Completion Deadline:</em> ${gradDateFor(student.year_level)}</li>
+          <li><em>Enrollment Status:</em> ${contract.enrollment_status || 'Enrolled'}</li>
+          <li><em>Contract Criteria:</em> ${contract.contract_criteria || student.contract_criteria || '—'}</li>
+          <li><em>Designation:</em> ${contractDesignationLabel(contract.designation)}</li>
+          <li><em>Completion Deadline:</em> ${(contract.designation === 'inc' && contract.completion_deadline) ? fmtAttend(contract.completion_deadline) : ''}</li>
         </ul>
 
         ${certified ? `<div class="lock-notice">✓ <strong>Certified</strong> on ${new Date(contract.certified_at).toLocaleDateString()}.${contract.banner_pushed ? ' <span class="banner-ok">Pushed to Banner ✓</span>' : ''}</div>` : ''}
@@ -2671,17 +2874,21 @@ function renderContractView(mc) {
 
         <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
           <label style="font-size:13px;font-weight:600;">Contract Designation:</label>
-          <select class="designation-select" id="contractDesig" ${certified ? 'disabled' : ''} style="max-width:260px;">
+          <select class="designation-select" id="contractDesig" ${certified ? 'disabled' : ''} style="max-width:260px;" onchange="toggleContractDeadline()">
             <option value="">— Select —</option>
-            <option value="sat"   ${contract.designation === 'sat' ? 'selected' : ''}>Satisfactory (Sat)</option>
-            <option value="unsat" ${contract.designation === 'unsat' ? 'selected' : ''}>Unsatisfactory (Unsat)</option>
+            <option value="sat"   ${contract.designation === 'sat' ? 'selected' : ''}>Satisfactory</option>
+            <option value="unsat" ${contract.designation === 'unsat' ? 'selected' : ''}>Unsatisfactory</option>
+            <option value="inc"   ${contract.designation === 'inc' ? 'selected' : ''}>Incomplete</option>
           </select>
+          <label style="font-size:13px;font-weight:600;" id="contractDeadlineLbl" ${contract.designation === 'inc' ? '' : 'hidden'}>Completion Deadline:</label>
+          <input type="date" class="designation-select" id="contractDeadline" style="max-width:200px;"
+                 value="${contract.completion_deadline || ''}" ${certified ? 'disabled' : ''} ${contract.designation === 'inc' ? '' : 'hidden'}>
         </div>
         <div style="font-size:12px;color:#888;margin-top:4px;">The contract designation can be certified independently of the course evaluations; both push to Banner.</div>
 
         <div class="btn-group" style="margin-top:14px;">
           ${certified
-            ? '<button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>'
+            ? `<button class="btn btn-outline" onclick="printContractCertification('${student.id}')">Print / PDF</button>`
             : `<button class="btn btn-secondary" onclick="saveContractNarrative('${student.id}')">Save</button>
                <button class="btn btn-success" onclick="certifyContract('${student.id}')">Certify &amp; push to Banner</button>`}
         </div>
@@ -2699,19 +2906,36 @@ function renderContractView(mc) {
   }, 50);
 }
 
+// The completion deadline only applies to an Incomplete contract.
+function toggleContractDeadline() {
+  const sel = document.getElementById('contractDesig');
+  const inp = document.getElementById('contractDeadline');
+  const lbl = document.getElementById('contractDeadlineLbl');
+  if (!sel || !inp || !lbl) return;
+  const show = sel.value === 'inc';
+  inp.hidden = !show; lbl.hidden = !show;
+}
+
 function saveContractNarrative(studentId) {
   const desig = document.getElementById('contractDesig')?.value || '';
+  const deadline = document.getElementById('contractDeadline')?.value || '';
   const narr = _contractQuill ? _contractQuill.root.innerHTML : '';
-  saveContract(studentId, { designation: desig, internal_narrative: narr });
+  saveContract(studentId, { designation: desig, internal_narrative: narr, completion_deadline: desig === 'inc' ? deadline : null });
   showToast('Saved.', '#6c757d');
 }
 
 function certifyContract(studentId) {
   const desig = document.getElementById('contractDesig')?.value;
-  if (!desig) { showToast('Select a contract designation (Sat/Unsat) first.', '#dc3545'); return; }
+  if (!desig) { showToast('Select a contract designation first.', '#dc3545'); return; }
+  const deadline = document.getElementById('contractDeadline')?.value || '';
+  if (desig === 'inc' && !deadline) { showToast('Enter a completion deadline for an incomplete contract.', '#dc3545'); return; }
   if (!confirm('Certify this contract and push the contract designation to Banner? It will be locked.')) return;
   const narr = _contractQuill ? _contractQuill.root.innerHTML : '';
-  saveContract(studentId, { designation: desig, internal_narrative: narr, certified: true, certified_at: new Date().toISOString(), banner_pushed: true, banner_pushed_at: new Date().toISOString() });
+  saveContract(studentId, {
+    designation: desig, internal_narrative: narr,
+    completion_deadline: desig === 'inc' ? deadline : null,
+    certified: true, certified_at: new Date().toISOString(), banner_pushed: true, banner_pushed_at: new Date().toISOString(),
+  });
   bannerPushToast('Contract designation');
   renderMain();
 }
@@ -3026,9 +3250,11 @@ function generatePacketPDF() {
   const chosen = (window._packetEvals || []).filter(x => ids.has(x.e.id));
   if (!chosen.length) { showToast('Select at least one evaluation.', '#dc3545'); return; }
   const student = demoData.students.find(s => s.id === appState.packetStudentId);
+  // The Registrar has no access to Internal Narrative Evaluations.
   const entries = chosen.map(({ e, c }) => ({
     student, course: c, ev: e,
     faculty: demoData.profiles.find(p => p.id === (e.faculty_id || c.faculty_id)),
+    internalAccess: false,
   }));
   Data.logAccess('export_narrative_packet', 'student', student.id, student.id);
   openEvalDocument(entries, `${student.full_name} — Narrative Packet (${entries.length})`);
