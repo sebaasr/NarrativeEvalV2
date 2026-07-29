@@ -1704,7 +1704,9 @@ async function renderCourseView(mc) {
         statusBadge = ev.status === 'submitted'
           ? '<span class="status-badge status-submitted">Submitted</span>'
           : '<span class="status-badge status-draft">Draft</span>';
-        desigBadge = getDesignationBadge(ev.designation);
+        desigBadge = getDesignationPill(ev.designation);
+        if (ev.designation === 'inc' && ev.completion_deadline) desigBadge += `<div class="row-deadline" style="margin-top:2px;">Deadline: ${fmtAttend(ev.completion_deadline)}</div>`;
+        if (ev.supp_designation) desigBadge += `<div style="font-size:11px;color:#7a8494;margin-top:2px;">GPA-proxy: ${ev.supp_designation}</div>`;
       }
       rows += `<tr>
         <td class="clickable" onclick="openEvaluation('${s.id}','${appState.selectedCourseId}')">${s.full_name}</td>
@@ -1719,14 +1721,18 @@ async function renderCourseView(mc) {
 
     const courseObj = USE_DEMO ? course : { code: '', name: '', description: '', semester: '', year: '', faculty_id: '' };
     const facultyName = USE_DEMO ? (demoData.profiles.find(p => p.id === courseObj.faculty_id)?.full_name || '') : '';
+    const meta = courseMetaLine(courseObj);
+    const instr = instructorsOf(courseObj, facultyName);
 
     mc.innerHTML = `
       <div class="card">
         <div class="card-header">
-          <span>${courseObj.code}: ${courseObj.name}</span>
-          <span style="font-weight:400;font-size:13px;color:#888;">${courseObj.semester} ${courseObj.year} · ${facultyName}</span>
+          <span>${courseObj.name}</span>
+          <span style="font-weight:400;font-size:13px;color:#888;">${courseObj.semester} ${courseObj.year}</span>
         </div>
         <div class="card-body">
+          ${meta ? `<div style="font-size:12.5px;color:#7a8494;margin-bottom:4px;">${meta} · <span style="color:#55606f;">Registration: ${courseObj.reg_status || '—'}</span></div>` : ''}
+          <div style="font-size:13px;color:#445;margin-bottom:8px;">Instructor: ${instr}</div>
           <div class="course-desc-box"><strong>Course Description:</strong> ${courseObj.description}</div>
           <table class="student-table">
             <thead><tr>
@@ -1839,9 +1845,14 @@ async function renderEvaluationForm(mc) {
           <div class="eval-header-grid">
             <div class="eval-field"><label>Student</label><div class="field-value">${student.full_name}</div></div>
             <div class="eval-field"><label>N-Number</label><div class="field-value">${student.n_number}</div></div>
-            <div class="eval-field"><label>Course</label><div class="field-value">${course.code}: ${course.name}</div></div>
-            <div class="eval-field"><label>Faculty</label><div class="field-value">${facultyName}</div></div>
+            <div class="eval-field"><label>Course</label><div class="field-value">${course.name}</div></div>
+            <div class="eval-field"><label>CRN</label><div class="field-value">${course.crn || '—'}</div></div>
+            <div class="eval-field"><label>Subject / Number</label><div class="field-value">${(course.subject_code || '')} ${(course.course_number || '')}</div></div>
+            <div class="eval-field"><label>Instructor</label><div class="field-value">${instructorsOf(course, facultyName)}</div></div>
             <div class="eval-field"><label>Semester / Year</label><div class="field-value">${course.semester} ${course.year}</div></div>
+            <div class="eval-field"><label>Session</label><div class="field-value">${course.session || '—'}</div></div>
+            <div class="eval-field"><label>Course Type</label><div class="field-value">${course.course_type || '—'}</div></div>
+            <div class="eval-field"><label>Registration Status</label><div class="field-value">${course.reg_status || '—'}</div></div>
             <div class="eval-field"><label>Faculty Advisor</label><div class="field-value">${advisorName}</div></div>
             <div class="eval-field"><label>Student Year</label><div class="field-value">${student.year_level}</div></div>
             <div class="eval-field"><label>Contracts Completed</label><div class="field-value">${student.contracts_completed ?? '—'}</div></div>
@@ -1850,13 +1861,13 @@ async function renderEvaluationForm(mc) {
               <label>Course Designation</label>
               <select class="designation-select" id="designationSelect" ${locked ? 'disabled' : ''} onchange="toggleAttendField()">
                 <option value="">— Select Designation —</option>
-                <option value="strong_sat"   ${designation==='strong_sat'   ? 'selected':''}>Strong Sat (SS)</option>
-                <option value="sat"          ${designation==='sat'          ? 'selected':''}>Sat (S)</option>
-                <option value="marginal_sat" ${designation==='marginal_sat' ? 'selected':''}>Marginal Sat (MS)</option>
-                <option value="unsat"        ${designation==='unsat'        ? 'selected':''}>Unsat (U)</option>
+                <option value="strong_sat"   ${designation==='strong_sat'   ? 'selected':''}>Strong Satisfactory</option>
+                <option value="sat"          ${designation==='sat'          ? 'selected':''}>Satisfactory</option>
+                <option value="marginal_sat" ${designation==='marginal_sat' ? 'selected':''}>Marginal Satisfactory</option>
+                <option value="unsat"        ${designation==='unsat'        ? 'selected':''}>Unsatisfactory</option>
                 <option value="pass"         ${designation==='pass'         ? 'selected':''}>Pass</option>
-                <option value="fail"         ${designation==='fail'         ? 'selected':''}>Fail (F)</option>
-                <option value="inc"          ${designation==='inc'          ? 'selected':''}>Incomplete (INC)</option>
+                <option value="fail"         ${designation==='fail'         ? 'selected':''}>Fail</option>
+                <option value="inc"          ${designation==='inc'          ? 'selected':''}>Incomplete</option>
               </select>
             </div>
             <div class="eval-field" id="attendField" style="${designation==='inc' ? '' : 'display:none;'}">
@@ -2344,7 +2355,7 @@ function renderAdvisorTermPane() {
 function advisorTile(i) {
   const ev = i.ev, c = i.course;
   const sid = window._advisorStudentId;
-  const desig = ev ? getDesignationBadge(ev.designation) : '';
+  const desig = ev ? getDesignationPill(ev.designation) : '';
   const status = ev
     ? (ev.status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>' : '<span class="status-badge status-draft">Draft</span>')
     : '<span class="status-badge status-not-started">Not started</span>';
@@ -2353,8 +2364,9 @@ function advisorTile(i) {
     <div class="adv-tile${clickable ? ' adv-tile-click' : ''}" id="advtile-${c?.id}"${clickable ? ` onclick="openEvalPanel('${sid}','${c?.id}')"` : ''}>
       <div class="adv-tile-head">
         <div style="min-width:0;">
-          <div style="font-weight:600;font-size:13.5px;">${c?.code}: ${c?.name}</div>
-          <div style="font-size:12px;color:#888;">${i.facultyName || ''}</div>
+          <div style="font-weight:600;font-size:13.5px;">${c?.name}</div>
+          <div style="font-size:11.5px;color:#7a8494;">${courseMetaLine(c)}</div>
+          <div style="font-size:12px;color:#888;">${instructorsOf(c, i.facultyName)}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex:0 0 auto;">${desig}${status}${clickable ? '<span class="adv-caret">&#9656;</span>' : ''}</div>
       </div>
@@ -2685,10 +2697,10 @@ function applyBrowseFilters() {
       <td>${s?.full_name || '—'}</td>
       <td>${s?.n_number || '—'}</td>
       <td>${s?.aoc || '—'}</td>
-      <td>${c ? `${c.code}: ${c.name}` : '—'}</td>
+      <td>${c ? `${c.name}<div style="font-size:11px;color:#7a8494;">${courseMetaLine(c)}</div>` : '—'}</td>
       <td>${c ? `${c.semester} ${c.year}` : '—'}</td>
-      <td>${r.faculty?.full_name || '—'}</td>
-      <td>${getDesignationBadge(r.ev.designation)}</td>
+      <td>${instructorsOf(c, r.faculty?.full_name)}</td>
+      <td>${getDesignationPill(r.ev.designation)}</td>
       <td>${statusBadge}</td>
       <td><button class="btn btn-outline btn-sm" onclick="openBrowseRow('${r.ev.student_id}','${r.ev.course_id}','${r.ev.faculty_id}')">View</button></td>
     </tr>`;
@@ -2701,7 +2713,7 @@ function applyBrowseFilters() {
     <table class="student-table">
       <thead><tr>
         <th>Student</th><th>N-Number</th><th>AOC</th><th>Course</th><th>Semester</th>
-        <th>Professor</th><th>Designation</th><th>Status</th><th></th>
+        <th>Instructor</th><th>Designation</th><th>Status</th><th></th>
       </tr></thead>
       <tbody>${body}</tbody>
     </table>
@@ -2814,12 +2826,12 @@ function renderContractView(mc) {
     const faculty = USE_DEMO ? demoData.profiles.find(p => p.id === c.faculty_id) : null;
     const official = !!(ev && ev.status === 'submitted');
     return `<tr>
-      <td>${(c.code || '').replace('CRN ', '')}</td>
-      <td>${c.name}</td>
-      <td>Course/Seminar/Topics</td>
-      <td>Registered</td>
-      <td>${faculty?.full_name || '—'}</td>
-      <td>Full Term</td>
+      <td>${c.crn || (c.code || '').replace('CRN ', '')}</td>
+      <td>${c.name}<div style="font-size:11px;color:#7a8494;">${(c.subject_code || '')} ${(c.course_number || '')}</div></td>
+      <td>${c.course_type || 'Course/Seminar/Topics'}</td>
+      <td>${c.reg_status || 'Registered'}</td>
+      <td>${instructorsOf(c, faculty?.full_name)}</td>
+      <td>${c.session || 'Full Term'}</td>
       <td>${ev ? designationLabel(ev.designation) : '—'}</td>
       <td style="text-align:center;">${check(official)}</td>
       <td style="text-align:center;"><button class="btn btn-outline btn-sm" onclick="openEvalPanel('${student.id}','${c.id}')">Select</button></td>
@@ -2958,23 +2970,28 @@ async function openEvalPanel(studentId, courseId) {
     if (ev?.id) privateNarr = await Data.getPrivateNote(ev.id);
     Data.logAccess('view_evaluation', 'evaluation', ev?.id, studentId);
     const desig = ev?.designation || '';
+    const pMeta = courseMetaLine(course);
     body.innerHTML = `
-      <div style="font-size:13px;color:#888;margin-bottom:10px;">${student?.full_name || ''} · ${faculty?.full_name || ''} · ${course?.semester} ${course?.year}</div>
+      <div style="font-size:13px;color:#333;margin-bottom:2px;">${student?.full_name || ''}${student?.n_number ? ` (${student.n_number})` : ''}</div>
+      <div style="font-size:12.5px;color:#7a8494;">${course?.semester || ''} ${course?.year || ''}${pMeta ? ' · ' + pMeta : ''}</div>
+      <div style="font-size:12.5px;color:#7a8494;margin-bottom:10px;">Instructor: ${instructorsOf(course, faculty?.full_name)} · Registration: ${course?.reg_status || '—'}</div>
       <div class="rte-label" style="margin-top:4px;">Course Designation</div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
         <select class="designation-select" id="panelDesig" style="max-width:240px;">
           <option value="">— Select —</option>
-          <option value="strong_sat"   ${desig === 'strong_sat' ? 'selected' : ''}>Strong Sat (SS)</option>
-          <option value="sat"          ${desig === 'sat' ? 'selected' : ''}>Sat (S)</option>
-          <option value="marginal_sat" ${desig === 'marginal_sat' ? 'selected' : ''}>Marginal Sat (MS)</option>
-          <option value="unsat"        ${desig === 'unsat' ? 'selected' : ''}>Unsat (U)</option>
+          <option value="strong_sat"   ${desig === 'strong_sat' ? 'selected' : ''}>Strong Satisfactory</option>
+          <option value="sat"          ${desig === 'sat' ? 'selected' : ''}>Satisfactory</option>
+          <option value="marginal_sat" ${desig === 'marginal_sat' ? 'selected' : ''}>Marginal Satisfactory</option>
+          <option value="unsat"        ${desig === 'unsat' ? 'selected' : ''}>Unsatisfactory</option>
           <option value="pass"         ${desig === 'pass' ? 'selected' : ''}>Pass</option>
-          <option value="fail"         ${desig === 'fail' ? 'selected' : ''}>Fail (F)</option>
-          <option value="inc"          ${desig === 'inc' ? 'selected' : ''}>Incomplete (INC)</option>
+          <option value="fail"         ${desig === 'fail' ? 'selected' : ''}>Fail</option>
+          <option value="inc"          ${desig === 'inc' ? 'selected' : ''}>Incomplete</option>
         </select>
         <button class="btn btn-primary btn-sm" onclick="savePanelDesignation('${studentId}','${courseId}')">Save &amp; push to Banner</button>
       </div>
-      ${desig === 'inc' ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev?.last_attend_date)} <span style="color:#888;">(Banner)</span></div>` : ''}
+      ${desig === 'inc' ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev?.last_attend_date)} <span style="color:#888;">(Banner)</span></div>
+      <div style="font-size:13px;color:#b8860b;"><strong>Completion Deadline:</strong> ${ev?.completion_deadline ? fmtAttend(ev.completion_deadline) : '—'}</div>` : ''}
+      ${ev?.supp_designation ? `<div style="margin-top:6px;font-size:13px;"><strong>Supplementary Designation (GPA-proxy):</strong> ${ev.supp_designation}</div>` : ''}
       <div class="rte-label" style="margin-top:16px;">External Narrative Evaluation</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev?.public_narrative || '<span style="color:#888;">Not written yet.</span>'}</div></div>
       ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Internal Narrative Evaluation</div>
@@ -3113,14 +3130,17 @@ function applyRegistrarFilters() {
     const c  = USE_DEMO ? demoData.courses.find(cc => cc.id === e.course_id)   : e.course;
     const fac = USE_DEMO ? demoData.profiles.find(p => p.id === e.faculty_id)  : e.faculty;
     const updated = e.updated_at ? new Date(e.updated_at).toLocaleDateString() : '—';
+    const desigCell = getDesignationPill(e.designation)
+      + (e.designation === 'inc' && e.completion_deadline ? `<div class="row-deadline" style="margin-top:2px;">Deadline: ${fmtAttend(e.completion_deadline)}</div>` : '')
+      + (e.supp_designation ? `<div style="font-size:11px;color:#7a8494;margin-top:2px;">GPA-proxy: ${e.supp_designation}</div>` : '');
     tableRows += `<tr>
       <td>${s?.full_name || '—'}</td>
       <td>${s?.n_number || '—'}</td>
       <td>${s?.year_level || '—'}</td>
-      <td>${c ? `${c.code}: ${c.name}` : '—'}</td>
+      <td>${c ? `${c.name}<div style="font-size:11px;color:#7a8494;">${courseMetaLine(c)}</div>` : '—'}</td>
       <td>${c ? `${c.semester} ${c.year}` : '—'}</td>
-      <td>${fac?.full_name || '—'}</td>
-      <td>${getDesignationBadge(e.designation)}</td>
+      <td>${instructorsOf(c, fac?.full_name)}</td>
+      <td>${desigCell}</td>
       <td>${e.status === 'submitted'
         ? '<span class="status-badge status-submitted">Submitted</span>'
         : '<span class="status-badge status-draft">Draft</span>'}</td>
@@ -3136,7 +3156,7 @@ function applyRegistrarFilters() {
     <table class="student-table">
       <thead><tr>
         <th>Student</th><th>N-Number</th><th>Year</th><th>Course</th><th>Semester</th>
-        <th>Faculty</th><th>Designation</th><th>Status</th><th>Last Updated</th><th></th>
+        <th>Instructor</th><th>Designation</th><th>Status</th><th>Last Updated</th><th></th>
       </tr></thead>
       <tbody>${tableRows}</tbody>
     </table>
@@ -3181,8 +3201,8 @@ function renderRegistrarPacket(mc) {
   window._packetEvals = evals;
 
   const present = [...new Set(evals.map(x => x.e.designation).filter(Boolean))];
-  const catBoxes = PACKET_CATEGORIES.filter(([k]) => present.includes(k)).map(([k, label]) =>
-    `<label class="pk-cat"><input type="checkbox" class="pk-cat-box" value="${k}" checked onchange="applyPacketFilter()"> ${getDesignationBadge(k)} ${label}</label>`
+  const catBoxes = PACKET_CATEGORIES.filter(([k]) => present.includes(k)).map(([k]) =>
+    `<label class="pk-cat"><input type="checkbox" class="pk-cat-box" value="${k}" checked onchange="applyPacketFilter()"> ${getDesignationPill(k)}</label>`
   ).join('');
 
   mc.innerHTML = `
@@ -3223,13 +3243,14 @@ function applyPacketFilter() {
   }
   const body = rows.map(({ e, c }) => {
     const fac = demoData.profiles.find(p => p.id === (e.faculty_id || c.faculty_id));
-    const inc = e.designation === 'inc' ? `<div style="font-size:11px;color:#b8860b;">LDA: ${fmtAttend(e.last_attend_date)}</div>` : '';
+    const inc = e.designation === 'inc'
+      ? `<div style="font-size:11px;color:#b8860b;">LDA: ${fmtAttend(e.last_attend_date)} · Deadline: ${e.completion_deadline ? fmtAttend(e.completion_deadline) : '—'}</div>` : '';
     return `<tr>
       <td style="text-align:center;"><input type="checkbox" class="pk-row-box" data-ev="${e.id}" checked></td>
-      <td>${c.code}: ${c.name}${inc}</td>
+      <td>${c.name}<div style="font-size:11px;color:#7a8494;">${courseMetaLine(c)}</div>${inc}</td>
       <td>${c.semester} ${c.year}</td>
-      <td>${fac?.full_name || '—'}</td>
-      <td>${getDesignationBadge(e.designation)}</td>
+      <td>${instructorsOf(c, fac?.full_name)}</td>
+      <td>${getDesignationPill(e.designation)}</td>
       <td>${e.status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>' : '<span class="status-badge status-draft">Draft</span>'}</td>
     </tr>`;
   }).join('');
@@ -3438,28 +3459,32 @@ function stripHtml(html) {
   return (d.textContent || '').replace(/s+/g, ' ').trim();
 }
 
-function getDesignationBadge(d) {
-  const map = {
-    strong_sat:   ['SS',   'desig-satplus'],
-    sat:          ['S',    'desig-sat'],
-    marginal_sat: ['MS',   'desig-satminus'],
-    unsat:        ['U',    'desig-unsat'],
-    pass:         ['Pass', 'desig-pass'],
-    fail:         ['F',    'desig-fnc'],
-    inc:          ['INC',  'desig-inc'],
-  };
-  const [label, cls] = map[d] || ['—', ''];
-  return cls ? `<span class="desig-badge ${cls}">${label}</span>` : label;
-}
-
-// Same colored pill but with the full grade description (e.g. "Strong Satisfactory"
-// instead of "SS"). Used on the student-facing landing page.
+// Colored pill with the full grade description (e.g. "Strong Satisfactory"
+// instead of "SS"). Used across all views.
 function getDesignationPill(d) {
   const cls = {
     strong_sat: 'desig-satplus', sat: 'desig-sat', marginal_sat: 'desig-satminus',
     unsat: 'desig-unsat', pass: 'desig-pass', fail: 'desig-fnc', inc: 'desig-inc',
   }[d];
   return cls ? `<span class="desig-badge ${cls}">${designationLabel(d)}</span>` : '—';
+}
+
+// ── Shared Banner-style course helpers (used across every view) ──
+// Instructor list (supports co-taught courses), falling back to a single name.
+function instructorsOf(course, fallbackName) {
+  return (course && course.instructors && course.instructors.length)
+    ? course.instructors.join(' / ')
+    : (fallbackName || '—');
+}
+// "CRN 80539 · BIO 2039 · Full Term · Course/Seminar/Topics"
+function courseMetaLine(course) {
+  if (!course) return '';
+  return [
+    course.crn ? 'CRN ' + course.crn : '',
+    `${course.subject_code || ''} ${course.course_number || ''}`.trim(),
+    course.session || '',
+    course.course_type || '',
+  ].filter(Boolean).join(' · ');
 }
 
 function showToast(msg, color) {
