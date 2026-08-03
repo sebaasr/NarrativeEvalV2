@@ -259,6 +259,8 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .pk-cat input { cursor: pointer; }
 .private-notice { font-size: 12px; color: #c0392b; font-style: italic; margin-bottom: 4px; }
 .public-notice { font-size: 12px; color: #27ae60; font-style: italic; margin-bottom: 4px; }
+/* Official External/Internal narrative statements (shown with every narrative). */
+.narr-stmt { font-size: 12px; color: #2a56c6; line-height: 1.5; margin: 2px 0 8px; }
 
 /* ── Amendment banner ── */
 .amendment-banner {
@@ -1896,14 +1898,14 @@ async function renderEvaluationForm(mc) {
           <div class="course-desc-box"><strong>Course Description:</strong> ${course.description}</div>
 
           <div class="rte-label">External Narrative Evaluation</div>
-          <div class="public-notice">This evaluation becomes part of the student's official academic record.</div>
+          <div class="narr-stmt">${EXTERNAL_STATEMENT}</div>
           <div class="rte-wrapper${locked ? ' readonly' : ''}" id="publicEditorWrapper">
             <div id="publicEditorContainer"></div>
           </div>
 
           ${canSeePrivate ? `
           <div class="rte-label private-label">Internal Narrative Evaluation</div>
-          <div class="private-notice">Shared only with the student and their advisor — not part of the public record, and not visible to the Registrar or PO Office.</div>
+          <div class="narr-stmt">${INTERNAL_STATEMENT}</div>
           <div class="rte-wrapper${locked ? ' readonly' : ''}" id="privateEditorWrapper">
             <div id="privateEditorContainer"></div>
           </div>` : ''}
@@ -2138,18 +2140,24 @@ function evalDocumentPageHtml(entry) {
       <div class="doc-student">${student.full_name} (${student.n_number})</div>
       <div class="doc-context">${term} ${course.name} (${course.crn || ''})</div>
 
+      ${(() => {
+        // Course-catalog details, shown as a compact line without labels.
+        const catalog = [
+          course.division || '',
+          `${course.subject_code || ''} ${course.course_number || ''}`.trim(),
+          course.course_type || '',
+          course.session || '',
+          course.reg_status || '',
+        ].filter(Boolean).join(' · ');
+        return `
       <div class="doc-meta">
-        ${docMetaLine('Division', course.division || '')}
-        ${docMetaLine('Subject Code', course.subject_code || '')}
-        ${docMetaLine('Course Number', course.course_number || '')}
-        ${docMetaLine('Type', course.course_type || '')}
-        ${docMetaLine('Session', course.session || '')}
+        ${catalog ? `<div class="doc-line">${catalog}</div>` : ''}
         ${docMetaLine('Instructor', instructors)}
-        ${docMetaLine('Registration Status', course.reg_status || '')}
         ${docMetaLine('Designation', ev?.designation ? designationLabel(ev.designation) : '')}
         ${docMetaLine('Completion Deadline', (ev?.designation === 'inc' && ev.completion_deadline) ? fmtAttend(ev.completion_deadline) : '')}
         ${docMetaLine('Supplementary Designation (GPA-proxy)', ev?.supp_designation || '')}
-      </div>
+      </div>`;
+      })()}
 
       <div class="doc-h2">External Narrative Evaluation</div>
       <div class="doc-stmt">${EXTERNAL_STATEMENT}</div>
@@ -2563,11 +2571,12 @@ async function openStudentNarrative(courseId) {
     <div style="font-size:13px;color:#888;margin-bottom:6px;">${faculty?.full_name || ''} · ${course.semester} ${course.year}</div>
     <div style="margin-bottom:8px;"><strong>Designation:</strong> ${getDesignationPill(ev.designation)} &nbsp; <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${ev.submitted_at ? new Date(ev.submitted_at).toLocaleDateString() : '—'}</span></div>
     ${incRow}
-    <div class="rte-label" style="margin-top:12px;">Narrative Evaluation</div>
+    <div class="rte-label" style="margin-top:12px;">External Narrative Evaluation</div>
+    <div class="narr-stmt">${EXTERNAL_STATEMENT}</div>
     <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${ev.public_narrative || '<span style="color:#888;">Not available.</span>'}</div></div>
     ${privateNarr ? `
     <div class="rte-label private-label" style="margin-top:14px;">Internal Narrative Evaluation</div>
-    <div class="private-notice">Shared with you, your advisor, and the course faculty. Not part of the public record.</div>
+    <div class="narr-stmt">${INTERNAL_STATEMENT}</div>
     <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${privateNarr}</div></div>` : ''}
     <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="printStudentNarrative('${courseId}')">Print / PDF</button></div>`;
   renderStudentList();   // refresh the unread markers behind the panel
@@ -2993,8 +3002,10 @@ async function openEvalPanel(studentId, courseId) {
       <div style="font-size:13px;color:#b8860b;"><strong>Completion Deadline:</strong> ${ev?.completion_deadline ? fmtAttend(ev.completion_deadline) : '—'}</div>` : ''}
       ${ev?.supp_designation ? `<div style="margin-top:6px;font-size:13px;"><strong>Supplementary Designation (GPA-proxy):</strong> ${ev.supp_designation}</div>` : ''}
       <div class="rte-label" style="margin-top:16px;">External Narrative Evaluation</div>
+      <div class="narr-stmt">${EXTERNAL_STATEMENT}</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev?.public_narrative || '<span style="color:#888;">Not written yet.</span>'}</div></div>
       ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Internal Narrative Evaluation</div>
+      <div class="narr-stmt">${INTERNAL_STATEMENT}</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div></div>` : ''}
       <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="openFullEvalFromPanel('${studentId}','${courseId}')">Open full evaluation ›</button></div>`;
   } catch (e) {
