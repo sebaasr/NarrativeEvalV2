@@ -773,6 +773,16 @@ function buildDemoData() {
   };
   // A shorter internal / contract narrative.
   const mkShortNarrative = (name) => `<p>${name.split(' ')[0]} ${pick(IM)}. ${loremSentence()}</p>`;
+  // The "Narrative Evaluation for Advising" (internal): a personal note to the
+  // student — a couple of paragraphs, distinct from the transcript narrative.
+  const mkAdvisingNarrative = (name) => {
+    const first = name.split(' ')[0];
+    return [
+      `${first},`,
+      `${loremSentence()} ${loremSentence()} ${loremSentence()}`,
+      `${pick(SN).replace(/^\w/, c => c.toUpperCase())}. ${first} ${pick(IM)}. ${loremSentence()}`,
+    ].map(p => `<p>${p}</p>`).join('');
+  };
 
   // ── Course metadata (Subject Code / Course Number / Session / Type / etc.) ──
   // The Argos source carries only CRN + free-text title, so these Banner-style
@@ -864,7 +874,8 @@ function buildDemoData() {
       public_narrative: submitted ? mkLongNarrative(name) : '',
       status, submitted_at: submitted ? termDate(course) : null, updated_at: termDate(course),
     });
-    if (submitted && rnd() < 0.4) d.privateNotes[id] = mkShortNarrative(name);
+    // Every submitted evaluation carries BOTH narratives (Transcript + Advising).
+    if (submitted) d.privateNotes[id] = mkAdvisingNarrative(name);
   }
 
   // Synthetic ISP (January 2026 interterm) — the Argos data has no Jan term.
@@ -882,6 +893,7 @@ function buildDemoData() {
       const c = pick(ispCourses); stud.enrollments.push(c.id);
       eseq++; const id = 'e' + eseq; const name = stud.full_name;
       d.evaluations.push({ id, student_id: stud.id, course_id: c.id, faculty_id: c.faculty_id, designation: pick(['strong_sat','sat','pass']), public_narrative: mkLongNarrative(name), status: 'submitted', submitted_at: '2026-01-26T10:00:00', updated_at: '2026-01-26T10:00:00' });
+      d.privateNotes[id] = mkAdvisingNarrative(name);
     }
   }
 
