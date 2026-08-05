@@ -259,8 +259,6 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .pk-cat input { cursor: pointer; }
 .private-notice { font-size: 12px; color: #c0392b; font-style: italic; margin-bottom: 4px; }
 .public-notice { font-size: 12px; color: #27ae60; font-style: italic; margin-bottom: 4px; }
-/* Official External/Internal narrative statements (shown with every narrative). */
-.narr-stmt { font-size: 12px; color: #2a56c6; line-height: 1.5; margin: 2px 0 8px; }
 
 /* ── Amendment banner ── */
 .amendment-banner {
@@ -896,6 +894,11 @@ function buildDemoData() {
     const co = s.enrollments.map(cid => courseById[cid]).find(c => c && c.instructors && c.instructors.length === 1);
     if (co) co.instructors.push(`${pick(FIRST)} ${pick(LAST)}`);
   });
+  // Guarantee at least one supplementary designation (GPA-proxy) exists in the demo.
+  if (spring[0]) {
+    const supEv = d.evaluations.find(e => e.student_id === spring[0].id && e.status === 'submitted');
+    if (supEv) supEv.supp_designation = 'Strong Satisfactory';
+  }
   // Seed a certified current-term contract for the first student login so the
   // student can see their advisor's contract certification in the demo.
   if (spring[0]) {
@@ -1897,15 +1900,13 @@ async function renderEvaluationForm(mc) {
 
           <div class="course-desc-box"><strong>Course Description:</strong> ${course.description}</div>
 
-          <div class="rte-label">External Narrative Evaluation</div>
-          <div class="narr-stmt">${EXTERNAL_STATEMENT}</div>
+          <div class="rte-label">Narrative Evaluation for Transcript</div>
           <div class="rte-wrapper${locked ? ' readonly' : ''}" id="publicEditorWrapper">
             <div id="publicEditorContainer"></div>
           </div>
 
           ${canSeePrivate ? `
-          <div class="rte-label private-label">Internal Narrative Evaluation</div>
-          <div class="narr-stmt">${INTERNAL_STATEMENT}</div>
+          <div class="rte-label private-label">Narrative Evaluation for Advising</div>
           <div class="rte-wrapper${locked ? ' readonly' : ''}" id="privateEditorWrapper">
             <div id="privateEditorContainer"></div>
           </div>` : ''}
@@ -2118,7 +2119,7 @@ function internalBlock(entry) {
     body = '<p class="doc-none">No internal narrative evaluation found.</p>';
   }
   return `
-    <div class="doc-h2">Internal Narrative Evaluation</div>
+    <div class="doc-h2">Narrative Evaluation for Advising</div>
     <div class="doc-stmt">${INTERNAL_STATEMENT}</div>
     <div class="doc-body">${body}</div>`;
 }
@@ -2155,11 +2156,11 @@ function evalDocumentPageHtml(entry) {
         ${docMetaLine('Instructor', instructors)}
         ${docMetaLine('Designation', ev?.designation ? designationLabel(ev.designation) : '')}
         ${docMetaLine('Completion Deadline', (ev?.designation === 'inc' && ev.completion_deadline) ? fmtAttend(ev.completion_deadline) : '')}
-        ${docMetaLine('Supplementary Designation (GPA-proxy)', ev?.supp_designation || '')}
+        ${ev?.supp_designation ? docMetaLine('Supplementary Designation (GPA-proxy)', ev.supp_designation) : ''}
       </div>`;
       })()}
 
-      <div class="doc-h2">External Narrative Evaluation</div>
+      <div class="doc-h2">Narrative Evaluation for Transcript</div>
       <div class="doc-stmt">${EXTERNAL_STATEMENT}</div>
       <div class="doc-body">${narr}</div>
 
@@ -2191,7 +2192,7 @@ function contractDocumentPageHtml(entry) {
         <li><span class="doc-lbl">Completion Deadline:</span> ${(contract.designation === 'inc' && contract.completion_deadline) ? fmtAttend(contract.completion_deadline) : ''}</li>
       </ul>
 
-      <div class="doc-h2">Internal Narrative Evaluation</div>
+      <div class="doc-h2">Narrative Evaluation for Advising</div>
       <div class="doc-stmt">${INTERNAL_STATEMENT}</div>
       <div class="doc-body">${narr}</div>
 
@@ -2571,12 +2572,10 @@ async function openStudentNarrative(courseId) {
     <div style="font-size:13px;color:#888;margin-bottom:6px;">${faculty?.full_name || ''} · ${course.semester} ${course.year}</div>
     <div style="margin-bottom:8px;"><strong>Designation:</strong> ${getDesignationPill(ev.designation)} &nbsp; <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${ev.submitted_at ? new Date(ev.submitted_at).toLocaleDateString() : '—'}</span></div>
     ${incRow}
-    <div class="rte-label" style="margin-top:12px;">External Narrative Evaluation</div>
-    <div class="narr-stmt">${EXTERNAL_STATEMENT}</div>
+    <div class="rte-label" style="margin-top:12px;">Narrative Evaluation for Transcript</div>
     <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${ev.public_narrative || '<span style="color:#888;">Not available.</span>'}</div></div>
     ${privateNarr ? `
-    <div class="rte-label private-label" style="margin-top:14px;">Internal Narrative Evaluation</div>
-    <div class="narr-stmt">${INTERNAL_STATEMENT}</div>
+    <div class="rte-label private-label" style="margin-top:14px;">Narrative Evaluation for Advising</div>
     <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${privateNarr}</div></div>` : ''}
     <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="printStudentNarrative('${courseId}')">Print / PDF</button></div>`;
   renderStudentList();   // refresh the unread markers behind the panel
@@ -2602,8 +2601,7 @@ function openStudentContract() {
     ${(contract.designation === 'inc' && contract.completion_deadline)
       ? `<div class="row-deadline" style="margin-bottom:6px;">Completion Deadline: <strong>${fmtAttend(contract.completion_deadline)}</strong></div>` : ''}
     ${hasNarr ? `
-    <div class="rte-label private-label" style="margin-top:10px;">Advisor's Narrative</div>
-    <div class="private-notice">A personal communication from your advisor. Only you may share it externally; it is not part of the official transcript.</div>
+    <div class="rte-label private-label" style="margin-top:10px;">Narrative Evaluation for Advising</div>
     <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${contract.internal_narrative}</div></div>` : '<div style="color:#888;">No narrative was attached to this certification.</div>'}
     <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="printContractCertification('${u.student_id}')">Print / PDF</button></div>`);
   renderStudentList();
@@ -2889,8 +2887,7 @@ function renderContractView(mc) {
 
         ${certified ? `<div class="lock-notice">✓ <strong>Certified</strong> on ${new Date(contract.certified_at).toLocaleDateString()}.${contract.banner_pushed ? ' <span class="banner-ok">Pushed to Banner ✓</span>' : ''}</div>` : ''}
 
-        <div class="rte-label private-label" style="margin-top:8px;">Internal Narrative Evaluation</div>
-        <div class="private-notice">A personal communication between the professor and the student. Only the student may share it with external audiences; it is never part of the official academic transcript.</div>
+        <div class="rte-label private-label" style="margin-top:8px;">Narrative Evaluation for Advising</div>
         <div class="rte-wrapper${certified ? ' readonly' : ''}" style="margin-top:6px;"><div id="contractEditorContainer"></div></div>
 
         <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -3001,11 +2998,9 @@ async function openEvalPanel(studentId, courseId) {
       ${desig === 'inc' ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev?.last_attend_date)} <span style="color:#888;">(Banner)</span></div>
       <div style="font-size:13px;color:#b8860b;"><strong>Completion Deadline:</strong> ${ev?.completion_deadline ? fmtAttend(ev.completion_deadline) : '—'}</div>` : ''}
       ${ev?.supp_designation ? `<div style="margin-top:6px;font-size:13px;"><strong>Supplementary Designation (GPA-proxy):</strong> ${ev.supp_designation}</div>` : ''}
-      <div class="rte-label" style="margin-top:16px;">External Narrative Evaluation</div>
-      <div class="narr-stmt">${EXTERNAL_STATEMENT}</div>
+      <div class="rte-label" style="margin-top:16px;">Narrative Evaluation for Transcript</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev?.public_narrative || '<span style="color:#888;">Not written yet.</span>'}</div></div>
-      ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Internal Narrative Evaluation</div>
-      <div class="narr-stmt">${INTERNAL_STATEMENT}</div>
+      ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Narrative Evaluation for Advising</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div></div>` : ''}
       <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="openFullEvalFromPanel('${studentId}','${courseId}')">Open full evaluation ›</button></div>`;
   } catch (e) {
