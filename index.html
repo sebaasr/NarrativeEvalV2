@@ -894,10 +894,11 @@ function buildDemoData() {
     const co = s.enrollments.map(cid => courseById[cid]).find(c => c && c.instructors && c.instructors.length === 1);
     if (co) co.instructors.push(`${pick(FIRST)} ${pick(LAST)}`);
   });
-  // Guarantee at least one supplementary designation (GPA-proxy) exists in the demo.
+  // Guarantee the first demo student (student1) has a supplementary designation
+  // (GPA-proxy) on a few of their courses so the demo shows it clearly.
   if (spring[0]) {
-    const supEv = d.evaluations.find(e => e.student_id === spring[0].id && e.status === 'submitted');
-    if (supEv) supEv.supp_designation = 'Strong Satisfactory';
+    const supEvs = d.evaluations.filter(e => e.student_id === spring[0].id && e.status === 'submitted').slice(0, 3);
+    supEvs.forEach(e => { e.supp_designation = 'Strong Satisfactory'; });
   }
   // Seed a certified current-term contract for the first student login so the
   // student can see their advisor's contract certification in the demo.
