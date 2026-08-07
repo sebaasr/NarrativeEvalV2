@@ -191,7 +191,16 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .course-row { display: flex; justify-content: space-between; gap: 16px; align-items: center; background: #fff; border: 1px solid #e7ebf2; border-radius: 12px; padding: 14px 18px; transition: border-color .12s, box-shadow .12s; }
 .course-row:hover { border-color: #c7d2e6; box-shadow: 0 3px 12px rgba(30,42,74,.07); }
 .course-row-unread { border-left: 4px solid #4a6cf7; }
+.course-row-click { cursor: pointer; }
 .contract-row { background: linear-gradient(0deg,#fbfcff,#fbfcff); border-color: #dbe4f5; }
+/* Collapsible sections (Course Description / Learning Objectives) */
+.collapse-sec { border: 1px solid #e7ebf2; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+.collapse-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; font-weight: 650; color: #1e2a4a; background: #f7f9fc; }
+.collapse-head:hover { background: #eef3fb; }
+.collapse-caret { transition: transform .15s; color: #7a8494; }
+.collapse-head.open .collapse-caret { transform: rotate(90deg); }
+.collapse-body { padding: 14px 16px; font-size: 14px; line-height: 1.7; color: #2c3440; }
+.collapse-body p { margin: 0 0 11px; }
 .course-row-main { min-width: 0; }
 .course-row-title { font-weight: 650; font-size: 15px; color: #1e2a4a; display: flex; align-items: center; gap: 8px; }
 .course-row-meta { font-size: 12.5px; color: #7a8494; margin-top: 3px; }
@@ -722,6 +731,7 @@ function buildDemoData() {
   const pick = a => a[Math.floor(rnd() * a.length)];
   const FIRST = ['Emma','Liam','Olivia','Noah','Ava','Ethan','Sophia','Mason','Isabella','Lucas','Mia','Aiden','Harper','Elijah','Charlotte','James','Amelia','Benjamin','Evelyn','Henry','Abigail','Sebastian','Ella','Jack','Scarlett','Owen','Grace','Leo','Chloe','Daniel','Layla','Julian','Riley','Gabriel','Nora','Wyatt','Zoe','Caleb','Hazel','Isaac','Aria','Nathan','Lily','Levi','Aurora','Dylan','Maya','Adrian','Sofia','Eli','Camila','Diego','Valentina','Mateo','Luna','Naomi','Omar','Jade','Kai','Priya','Wei','Yuki','Tariq','Ingrid','Freya'];
   const LAST = ['Adler','Bishop','Calderon','Donovan','Esposito','Frost','Gallagher','Holt','Iqbal','Jennings','Keller','Lambert','Mercer','Novak','Ortega','Pruitt','Quinn','Ramos','Sullivan','Tran','Underwood','Vega','Whitaker','Xiong','Yamamoto','Zelaya','Brennan','Cortez','Delgado','Ellison','Fontaine','Greer','Hammond','Ishikawa','Jovanovic','Kowalski','Lindqvist','Moreau','Nakashima','Okonkwo'];
+  const NICKS = ['Alex','Charlie','Sam','Max','Nico','Gabby','Andy','Beth','Cass','Danny','Frankie','Gigi','Jojo','Kit','Lulu','Manny','Nate','Ollie','Pip','Rae','Sami','Teddy','Val','Will','Bea','Theo','Mimi','Ray','Sunny'];
   const SN = ['engaged thoughtfully with the material','produced strong, well-argued work','was a reliable and generous contributor','showed excellent analytical skills','demonstrated genuine curiosity and rigor','wrote with notable clarity and insight'];
   const IM = ['should continue developing quantitative skills','could engage more deeply with counter-arguments','would benefit from more consistent participation','should work on time management','needs to strengthen written argumentation','could push toward a sharper, more contestable thesis'];
   const reformat = nm => { const p = (nm || '').split(',').map(s => s.trim()); if (p.length < 2) return nm || '—'; const first = (p[1] || '').split(' ')[0]; return `${first} ${p[0]}`.trim(); };
@@ -783,6 +793,9 @@ function buildDemoData() {
       `${pick(SN).replace(/^\w/, c => c.toUpperCase())}. ${first} ${pick(IM)}. ${loremSentence()}`,
     ].map(p => `<p>${p}</p>`).join('');
   };
+  // Course description + learning objectives: a couple of paragraphs each.
+  const mkCourseDescription = (title) => `<p>${title}. ${loremSentence()} ${loremSentence()} ${loremSentence()}</p><p>${loremParagraph()}</p>`;
+  const mkObjectives = () => `<p>${loremParagraph()}</p><p>${loremParagraph()}</p>`;
 
   // ── Course metadata (Subject Code / Course Number / Session / Type / etc.) ──
   // The Argos source carries only CRN + free-text title, so these Banner-style
@@ -833,7 +846,8 @@ function buildDemoData() {
     const session = type === 'Tutorial' ? pick(['Module 1','Module 2','Full Term']) : (rnd() < 0.06 ? 'Module 1' : 'Full Term');
     const course = {
       id: c.id, code: 'CRN ' + crn, name: c.title, semester: c.sem, year: c.year,
-      faculty_id: c.faculty_id, division: c.div || '', description: `${c.title}${c.div ? ' — ' + c.div : ''}.`, is_isp: false,
+      faculty_id: c.faculty_id, division: c.div || '', description: mkCourseDescription(c.title),
+      learning_objectives: mkObjectives(), credit_hours: 3, is_isp: false,
       crn, subject_code: subj, course_number: num, course_type: type, session,
       reg_status: rWith < 0.05 ? 'Withdrawn' : 'Registered', instructors,
     };
@@ -847,7 +861,10 @@ function buildDemoData() {
     // the student and advisor agreed on. Both parts must survive to the document.
     let criteria = (s.cc && s.cc['Spring 2026']) || '';
     if (criteria && rnd() < 0.45) criteria = `${criteria} — ${pick(CRITERIA_TEXT)}`;
-    const stud = { id: s.id, n_number: s.n_number, full_name: `${pick(FIRST)} ${pick(LAST)}`, advisor_id: s.advisor_id, year_level: s.year_level, contracts_completed: Object.keys(s.cc || {}).length, aoc: s.aoc, enrollments: [], attrs: s.attrs || [], contract_criteria: criteria };
+    const first = pick(FIRST), last = pick(LAST);
+    // Preferred name: usually the first name, sometimes a short nickname.
+    const preferred = rnd() < 0.3 ? pick(NICKS) : first;
+    const stud = { id: s.id, n_number: s.n_number, full_name: `${first} ${last}`, preferred_name: preferred, advisor_id: s.advisor_id, year_level: s.year_level, contracts_completed: Object.keys(s.cc || {}).length, aoc: s.aoc, enrollments: [], attrs: s.attrs || [], contract_criteria: criteria };
     d.students.push(stud); studByAnon[s.anon] = stud;
   }
 
@@ -884,7 +901,7 @@ function buildDemoData() {
   for (let i = 0; i < ISP_TOPICS.length; i++) {
     const id = 'isp' + i;
     const fid = A.advisorFac[i % A.advisorFac.length];
-    const c = { id, code: 'ISP 290', name: 'ISP: ' + ISP_TOPICS[i], semester: 'January', year: 2026, faculty_id: fid, division: 'Interdisciplinary', description: 'January Independent Study Project.', is_isp: true,
+    const c = { id, code: 'ISP 290', name: 'ISP: ' + ISP_TOPICS[i], semester: 'January', year: 2026, faculty_id: fid, division: 'Interdisciplinary', description: mkCourseDescription('ISP: ' + ISP_TOPICS[i]), learning_objectives: mkObjectives(), credit_hours: 3, is_isp: true,
       crn: String(29000 + i), subject_code: 'ISP', course_number: '0290', course_type: 'Independent Study Project', session: 'January Interterm', reg_status: 'Registered', instructors: [facById[fid]?.full_name || '—'] };
     d.courses.push(c); courseById[id] = c; ispCourses.push(c);
   }
@@ -935,6 +952,58 @@ function buildDemoData() {
       completion_deadline: '2026-09-15',
       internal_narrative: `<p>${spring[1].full_name.split(' ')[0]},</p><p>Two contract activities remain outstanding at the close of the term. We agreed on a plan to finish them; please keep to the schedule we set so the contract can be certified as satisfactory.</p>`,
     };
+  }
+
+  // ── Ensure each demo (login) faculty has a full current-term class list ──
+  // (~10 courses incl. classes, tutorials, and ISPs) so the Faculty landing page
+  // is well populated regardless of the source data. Runs last so it does not
+  // shift which students became the student logins above.
+  const FAC_TITLES = ['Sociology of Wealth','Introduction to Marine Biology','Political Philosophy: Justice and the State','Quantum Mechanics I','Creative Nonfiction Workshop','The Nineteenth-Century Russian Novel','Data Structures and Algorithms','Environmental Policy and Law','Cognitive Neuroscience','Foundations of Cultural Anthropology','Modernism and Its Discontents','Organic Chemistry II','Statistics for the Social Sciences','Ethics and Emerging Technology','Introduction to Ceramics'];
+  const ISP_FAC = ['Field Recording and Sound Studies','Genomics Data Pipeline','Archival Research in Local History','Studio Practice in Printmaking','Independent Reading in Ethics'];
+  const TUT_FAC = ['Advanced Statistical Modeling','Directed Reading in Phenomenology','Senior Thesis Preparation','Topics in Number Theory'];
+  const LONG_TITLE = 'Comparative Mythology and Folklore of Greece and Rome through Time and Space: Regionality, Difference, and the Transmission of Story across the Ancient Mediterranean World';
+  let fcSeq = 0, fcCrn = 26000;
+  const sampleStudents = (n) => { const out = [], seen = new Set(); let g = 0; while (out.length < n && g++ < n * 10) { const st = pick(d.students); if (!seen.has(st.id)) { seen.add(st.id); out.push(st); } } return out; };
+  const mkFacultyCourse = (fid, type, title) => {
+    fcSeq++; const id = 'fc' + fcSeq; const crn = String(fcCrn++);
+    const div = facById[fid]?.division || pick(['Humanities', 'Natural Sciences', 'Social Sciences']);
+    const subj = type === 'Independent Study Project' ? 'ISP' : (type === 'Tutorial' ? 'TUT' : subjectCode(title, div));
+    const num = String(1000 + (parseInt(crn, 10) % 4000)).padStart(4, '0');
+    const instructors = [facById[fid]?.full_name || '—'];
+    if (rnd() < 0.15) instructors.push(`${pick(FIRST)} ${pick(LAST)}`);
+    const session = type === 'Tutorial' ? pick(['Module 1', 'Module 2', 'Full Term']) : (rnd() < 0.1 ? 'Module 1' : 'Full Term');
+    const course = { id, code: 'CRN ' + crn, name: title, semester: 'Spring', year: 2026, faculty_id: fid, division: div,
+      description: mkCourseDescription(title), learning_objectives: mkObjectives(), credit_hours: 3, is_isp: type === 'Independent Study Project',
+      crn, subject_code: subj, course_number: num, course_type: type, session, reg_status: 'Registered', instructors };
+    d.courses.push(course); courseById[id] = course;
+    // Roster: a status mix (Not Started = no eval / Draft / Submitted).
+    for (const st of sampleStudents(6 + Math.floor(rnd() * 9))) {
+      st.enrollments.push(id);
+      const r = rnd(); const status = r < 0.3 ? 'none' : (r < 0.55 ? 'draft' : 'submitted');
+      if (status === 'none') continue;
+      eseq++; const eid = 'e' + eseq; const submitted = status === 'submitted';
+      const x = rnd();
+      const des = submitted ? (x < 0.3 ? 'strong_sat' : x < 0.7 ? 'sat' : x < 0.85 ? 'marginal_sat' : x < 0.92 ? 'unsat' : x < 0.97 ? 'pass' : 'inc') : '';
+      d.evaluations.push({ id: eid, student_id: st.id, course_id: id, faculty_id: fid, designation: des,
+        last_attend_date: des === 'inc' ? incLastDay(course, eseq) : null, completion_deadline: des === 'inc' ? incDeadline(course) : null,
+        supp_designation: '', public_narrative: submitted ? mkLongNarrative(st.full_name) : '',
+        status, submitted_at: submitted ? '2026-05-08T10:00:00' : null, updated_at: '2026-05-08T10:00:00' });
+      if (submitted) d.privateNotes[eid] = mkAdvisingNarrative(st.full_name);
+    }
+  };
+  const springCount = fid => d.courses.filter(c => c.faculty_id === fid && c.semester === 'Spring' && c.year === 2026).length;
+  const hasType = (fid, t) => d.courses.some(c => c.faculty_id === fid && c.semester === 'Spring' && c.year === 2026 && c.course_type === t);
+  for (const fid of A.advisorFac.slice(0, 6)) {
+    if (!hasType(fid, 'Tutorial')) mkFacultyCourse(fid, 'Tutorial', 'Tutorial: ' + pick(TUT_FAC));
+    if (!hasType(fid, 'Independent Study Project')) mkFacultyCourse(fid, 'Independent Study Project', 'ISP: ' + pick(ISP_FAC));
+    mkFacultyCourse(fid, 'Course/Seminar/Topics', LONG_TITLE);   // guarantee one very long title
+    while (springCount(fid) < 10) {
+      const roll = rnd();
+      if (roll < 0.55) mkFacultyCourse(fid, 'Course/Seminar/Topics', pick(FAC_TITLES));
+      else if (roll < 0.72) mkFacultyCourse(fid, 'Tutorial', 'Tutorial: ' + pick(TUT_FAC));
+      else if (roll < 0.86) mkFacultyCourse(fid, 'Laboratory', pick(FAC_TITLES) + ' Laboratory');
+      else mkFacultyCourse(fid, 'Independent Study Project', 'ISP: ' + pick(ISP_FAC));
+    }
   }
 
   return d;
@@ -1382,7 +1451,9 @@ function showApp() {
   // Students don't browse other students — hide the global student search.
   const searchBox = document.querySelector('.topbar-center');
   if (searchBox) searchBox.style.display = u.role === 'student' ? 'none' : '';
-  appState.view = 'welcome';
+  // Faculty land on their current-term class list; others on the welcome/default.
+  appState.view = u.role === 'faculty' ? 'faculty-classes' : 'welcome';
+  appState.facultyTerm = CURRENT_TERM;
   appState.selectedCourseId = null;
   appState.selectedStudentId = null;
   setupSearch();
@@ -1520,33 +1591,26 @@ async function renderSidebar() {
   if (u.role === 'faculty' || u.role === 'admin') {
     try {
       const allCourses = await Data.getMyCourses(u.id);
-      // Default view = the CURRENT semester only. Older terms live in Browse.
-      const courses = allCourses.filter(c => `${c.semester} ${c.year}` === CURRENT_TERM);
-      html += `<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">${CURRENT_TERM}</div>`;
-      if (courses.length === 0) {
-        html += '<div style="padding:20px;color:#888;font-size:13px;">No courses assigned this semester.</div>';
+      // Left nav = the terms this instructor has taught (most recent first).
+      const terms = [...new Set(allCourses.map(c => `${c.semester} ${c.year}`))].sort(semesterSortDesc);
+      if (!appState.facultyTerm || !terms.includes(appState.facultyTerm)) {
+        appState.facultyTerm = terms.includes(CURRENT_TERM) ? CURRENT_TERM : (terms[0] || CURRENT_TERM);
+      }
+      html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Terms</div>';
+      if (terms.length === 0) {
+        html += '<div style="padding:20px;color:#888;font-size:13px;">No courses on record.</div>';
       } else {
-        for (const c of courses) {
-          const studentsInCourse = USE_DEMO
-            ? demoData.students.filter(s => s.enrollments.includes(c.id))
-            : [];
-          const evalsForCourse = USE_DEMO
-            ? demoData.evaluations.filter(e => e.course_id === c.id)
-            : [];
-          const submitted = evalsForCourse.filter(e => e.status === 'submitted').length;
-          const total = USE_DEMO ? studentsInCourse.length : '?';
-          let badgeClass = 'badge-pending', badgeText = `${submitted}/${total} submitted`;
-          if (submitted === total && total > 0) { badgeClass = 'badge-complete'; badgeText = 'All submitted'; }
-          else if (submitted > 0) badgeClass = 'badge-partial';
-          const active = appState.selectedCourseId === c.id && appState.view === 'course' ? ' active' : '';
-          html += `<div class="sidebar-item${active}" onclick="navToCourse('${c.id}')">
-            <div class="si-title">${c.code}: ${c.name}</div>
-            <span class="si-badge ${badgeClass}">${badgeText}</span>
+        for (const t of terms) {
+          const n = allCourses.filter(c => `${c.semester} ${c.year}` === t).length;
+          const active = (appState.facultyTerm === t && (appState.view === 'faculty-classes' || appState.view === 'course')) ? ' active' : '';
+          html += `<div class="sidebar-item${active}" onclick="navToFacultyTerm('${t}')">
+            <div class="si-title">${t}</div>
+            <div class="si-subtitle">${n} class${n !== 1 ? 'es' : ''}</div>
           </div>`;
         }
       }
     } catch(e) {
-      html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">My Courses</div>';
+      html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Terms</div>';
       html += '<div style="padding:12px;color:#c00;font-size:12px;">Error loading courses.</div>';
     }
     const browseActive = appState.view === 'browse' ? ' active' : '';
@@ -1594,7 +1658,21 @@ function navToCourse(courseId) {
   destroyEditors();
   appState.selectedCourseId = courseId;
   appState.selectedStudentId = null;
+  // Keep the left-nav term in sync with the class being opened.
+  const c = USE_DEMO ? demoData.courses.find(cc => cc.id === courseId) : null;
+  if (c) appState.facultyTerm = `${c.semester} ${c.year}`;
   appState.view = 'course';
+  renderSidebar();
+  renderMain();
+}
+
+// Faculty: select a term in the left nav → show that term's class list.
+function navToFacultyTerm(term) {
+  if (!warnIfDirty()) return;
+  destroyEditors();
+  appState.facultyTerm = term;
+  appState.selectedCourseId = null;
+  appState.view = 'faculty-classes';
   renderSidebar();
   renderMain();
 }
@@ -1677,6 +1755,7 @@ function openEvaluation(studentId, courseId) {
 function renderMain() {
   const mc = document.getElementById('mainContent');
   switch (appState.view) {
+    case 'faculty-classes': renderFacultyClasses(mc); break;
     case 'course':          renderCourseView(mc); break;
     case 'evaluation':      renderEvaluationForm(mc); break;
     case 'advisees-list':   renderAdviseesList(mc); break;
@@ -1690,10 +1769,10 @@ function renderMain() {
     default:
       const u = appState.currentUser;
       if (u?.role === 'student') { renderStudentView(mc); break; }
+      if (u?.role === 'faculty') { renderFacultyClasses(mc); break; }
       mc.innerHTML = `<div class="welcome">
         <h2>Welcome, ${u?.full_name?.split(' ')[0] || ''}.</h2>
-        <p>${u?.role === 'faculty' ? 'Select a course or advisee from the sidebar.' :
-             (u?.role === 'registrar' || u?.role === 'po_office') ? 'Use the sidebar to view evaluations or the access log.' :
+        <p>${(u?.role === 'registrar' || u?.role === 'po_office') ? 'Use the sidebar to view evaluations or the access log.' :
              'Select an item from the sidebar.'}</p>
       </div>`;
   }
@@ -1704,64 +1783,143 @@ function renderMain() {
 // SECTION 10: COURSE VIEW (student list)
 // ═══════════════════════════════════════════════════════════════════
 
+// Faculty landing page: the selected term's classes as modern cards.
+async function renderFacultyClasses(mc) {
+  mc.innerHTML = '<div class="loading"><div class="spinner"></div>Loading classes…</div>';
+  const u = appState.currentUser;
+  const term = appState.facultyTerm || CURRENT_TERM;
+  try {
+    const all = await Data.getMyCourses(u.id);
+    const courses = all.filter(c => `${c.semester} ${c.year}` === term)
+      .sort((a, b) => (a.subject_code || '').localeCompare(b.subject_code || '') || a.name.localeCompare(b.name));
+    const cards = courses.map(facultyClassCard).join('');
+    mc.innerHTML = `
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-body">
+          <h3 style="margin-bottom:4px;">${term} · Classes</h3>
+          <div style="color:#666;font-size:14px;">${u.full_name} · ${courses.length} class${courses.length !== 1 ? 'es' : ''}</div>
+        </div>
+      </div>
+      <div class="course-list">${cards || '<div class="card"><div class="card-body" style="text-align:center;color:#888;padding:30px;">No classes for this term.</div></div>'}</div>`;
+  } catch (e) {
+    mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error loading classes: ${e.message}</div></div>`;
+  }
+}
+
+function facultyClassCard(c) {
+  const facultyName = USE_DEMO ? (demoData.profiles.find(p => p.id === c.faculty_id)?.full_name || '') : '';
+  const students = USE_DEMO ? demoData.students.filter(s => s.enrollments.includes(c.id)).length : 0;
+  const submitted = USE_DEMO ? demoData.evaluations.filter(e => e.course_id === c.id && e.status === 'submitted').length : 0;
+  return `
+    <div class="course-row course-row-click" onclick="navToCourse('${c.id}')">
+      <div class="course-row-main">
+        <div class="course-row-title">${c.name}</div>
+        <div class="course-row-meta">${courseMetaLine(c)}</div>
+        <div class="course-row-inst">Instructor: ${instructorsOf(c, facultyName)}</div>
+      </div>
+      <div class="course-row-side">
+        <span class="pill-muted">${students} student${students !== 1 ? 's' : ''}</span>
+        <span class="reg-pill ${submitted === students && students > 0 ? 'reg-registered' : 'reg-withdrawn'}">${submitted}/${students} submitted</span>
+      </div>
+    </div>`;
+}
+
+// Toggle a collapsible section (Course Description / Learning Objectives).
+function toggleSection(id) {
+  const b = document.getElementById(id), h = document.getElementById(id + '-h');
+  if (!b) return;
+  const open = b.style.display !== 'none';
+  b.style.display = open ? 'none' : 'block';
+  if (h) h.classList.toggle('open', !open);
+}
+
+// The class heading block (Title, meta line, Instructor) shared by card + roster.
+function courseHeadingBlock(course, facultyName) {
+  return `
+    <div class="course-row-title" style="font-size:19px;">${course.name}</div>
+    <div class="course-row-meta" style="font-size:13px;margin-top:5px;">${courseMetaLine(course)}</div>
+    <div class="course-row-inst" style="font-size:13.5px;">Instructor: ${instructorsOf(course, facultyName)}</div>`;
+}
+
+// Faculty class roster (the class list view).
 async function renderCourseView(mc) {
-  mc.innerHTML = '<div class="loading"><div class="spinner"></div>Loading…</div>';
+  mc.innerHTML = '<div class="loading"><div class="spinner"></div>Loading roster…</div>';
   const course = USE_DEMO ? demoData.courses.find(c => c.id === appState.selectedCourseId) : null;
   if (!course && USE_DEMO) { mc.innerHTML = '<div class="loading">Course not found.</div>'; return; }
 
   try {
     const students = await Data.getCourseStudents(appState.selectedCourseId);
-    const c = USE_DEMO ? course : { code: appState.selectedCourseId }; // simplified for non-demo
+    const courseObj = USE_DEMO ? course : { name: '', description: '', semester: '', year: '', faculty_id: '' };
+    const facultyName = USE_DEMO ? (demoData.profiles.find(p => p.id === courseObj.faculty_id)?.full_name || '') : '';
+    const term = `${courseObj.semester} ${courseObj.year}`;
+    const credits = Number(courseObj.credit_hours ?? 3).toFixed(1);
 
     let rows = '';
     for (const s of students) {
       const ev = USE_DEMO ? demoData.evaluations.find(e => e.student_id === s.id && e.course_id === appState.selectedCourseId) : null;
-      let statusBadge = '<span class="status-badge status-not-started">Not Started</span>';
-      let desigBadge = '&mdash;';
-      if (ev) {
-        statusBadge = ev.status === 'submitted'
-          ? '<span class="status-badge status-submitted">Submitted</span>'
-          : '<span class="status-badge status-draft">Draft</span>';
-        desigBadge = getDesignationPill(ev.designation);
-        if (ev.designation === 'inc' && ev.completion_deadline) desigBadge += `<div class="row-deadline" style="margin-top:2px;">Deadline: ${fmtAttend(ev.completion_deadline)}</div>`;
-        if (ev.supp_designation) desigBadge += `<div style="font-size:11px;color:#7a8494;margin-top:2px;">GPA-proxy: ${ev.supp_designation}</div>`;
-      }
+      const status = !ev ? '<span class="status-badge status-not-started">Not Started</span>'
+        : (ev.status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>' : '<span class="status-badge status-draft">Draft</span>');
+      const official = !!(ev && ev.status === 'submitted');
+      let desig = ev ? getDesignationPill(ev.designation) : '<span style="color:#bbb;">—</span>';
+      if (ev && ev.designation === 'inc' && ev.completion_deadline) desig += `<div class="row-deadline" style="margin-top:2px;">Deadline: ${fmtAttend(ev.completion_deadline)}</div>`;
+      const standing = studentStanding(s.id);
+      const standingCell = standing === 'Academic Probation'
+        ? '<span style="color:#c0392b;font-weight:600;">Academic Probation</span>' : 'Good Standing';
+      const advisor = s.advisor ? s.advisor.full_name : (USE_DEMO ? (demoData.profiles.find(p => p.id === s.advisor_id)?.full_name || '—') : '—');
+      const preferred = s.preferred_name && s.preferred_name !== s.full_name.split(' ')[0]
+        ? s.preferred_name : (s.preferred_name || '—');
       rows += `<tr>
-        <td class="clickable" onclick="openEvaluation('${s.id}','${appState.selectedCourseId}')">${s.full_name}</td>
+        <td class="clickable" onclick="openEvaluation('${s.id}','${appState.selectedCourseId}')"><strong>${s.full_name}</strong></td>
+        <td>${preferred}</td>
         <td>${s.n_number}</td>
-        <td>${s.year_level}</td>
-        <td>${gradDateFor(s.year_level)}</td>
-        <td>${s.advisor ? s.advisor.full_name : (USE_DEMO ? (demoData.profiles.find(p=>p.id===s.advisor_id)?.full_name||'—') : '—')}</td>
-        <td>${desigBadge}</td>
-        <td>${statusBadge}</td>
+        <td>Enrolled</td>
+        <td>Registered</td>
+        <td>${credits}</td>
+        <td>${advisor}</td>
+        <td>${standingCell}</td>
+        <td style="text-align:center;">${check(official)}</td>
+        <td>${desig}</td>
+        <td>${status}</td>
       </tr>`;
     }
 
-    const courseObj = USE_DEMO ? course : { code: '', name: '', description: '', semester: '', year: '', faculty_id: '' };
-    const facultyName = USE_DEMO ? (demoData.profiles.find(p => p.id === courseObj.faculty_id)?.full_name || '') : '';
-    const meta = courseMetaLine(courseObj);
-    const instr = instructorsOf(courseObj, facultyName);
-
     mc.innerHTML = `
-      <div class="card">
-        <div class="card-header">
-          <span>${courseObj.name}</span>
-          <span style="font-weight:400;font-size:13px;color:#888;">${courseObj.semester} ${courseObj.year}</span>
-        </div>
+      <div style="margin-bottom:12px;">
+        <button class="btn btn-outline btn-sm" onclick="navToFacultyTerm('${term}')">← Back to ${term} classes</button>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
-          ${meta ? `<div style="font-size:12.5px;color:#7a8494;margin-bottom:4px;">${meta} · <span style="color:#55606f;">Registration: ${courseObj.reg_status || '—'}</span></div>` : ''}
-          <div style="font-size:13px;color:#445;margin-bottom:8px;">Instructor: ${instr}</div>
-          <div class="course-desc-box"><strong>Course Description:</strong> ${courseObj.description}</div>
+          ${courseHeadingBlock(courseObj, facultyName)}
+        </div>
+      </div>
+
+      <div class="collapse-sec">
+        <div class="collapse-head" id="descBody-h" onclick="toggleSection('descBody')">
+          <span>Course Description</span><span class="collapse-caret">&#9656;</span>
+        </div>
+        <div class="collapse-body" id="descBody" style="display:none;">${courseObj.description || '—'}</div>
+      </div>
+      <div class="collapse-sec">
+        <div class="collapse-head" id="objBody-h" onclick="toggleSection('objBody')">
+          <span>Learning Objectives</span><span class="collapse-caret">&#9656;</span>
+        </div>
+        <div class="collapse-body" id="objBody" style="display:none;">${courseObj.learning_objectives || '—'}</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Class Roster <span style="font-weight:400;font-size:13px;color:#888;">${students.length} student${students.length !== 1 ? 's' : ''}</span></div>
+        <div class="card-body" style="overflow-x:auto;">
           <table class="student-table">
             <thead><tr>
-              <th>Student</th><th>N-Number</th><th>Year</th><th>Expected Grad</th><th>Advisor</th><th>Designation</th><th>Status</th>
+              <th>Student</th><th>Preferred</th><th>ID</th><th>Enroll.</th><th>Reg.</th><th>Credits</th>
+              <th>Advisor</th><th>Academic Standing</th><th>Official</th><th>Designation</th><th>Status</th>
             </tr></thead>
-            <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px;">No students enrolled.</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="11" style="text-align:center;color:#888;padding:20px;">No students enrolled.</td></tr>'}</tbody>
           </table>
         </div>
       </div>`;
   } catch(e) {
-    mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error loading students: ${e.message}</div></div>`;
+    mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error loading roster: ${e.message}</div></div>`;
   }
 }
 
@@ -2487,6 +2645,7 @@ function studentCourseRow(course, ev) {
   const meta = [
     `CRN ${course.crn || '—'}`,
     `${course.subject_code || ''} ${course.course_number || ''}`.trim(),
+    `${Number(course.credit_hours ?? 3).toFixed(1)} credits`,
     course.session || 'Full Term',
     course.course_type || 'Course/Seminar/Topics',
   ].filter(Boolean).join(' · ');
