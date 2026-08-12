@@ -192,6 +192,11 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .course-row:hover { border-color: #c7d2e6; box-shadow: 0 3px 12px rgba(30,42,74,.07); }
 .course-row-unread { border-left: 4px solid #4a6cf7; }
 .course-row-click { cursor: pointer; }
+/* Indent the class list beneath its term / contract header. */
+.class-indent { margin-left: 24px; }
+@media (max-width: 640px) { .class-indent { margin-left: 12px; } }
+.read-yes { color: #1e7e34; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.read-no { color: #b8860b; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .contract-row { background: linear-gradient(0deg,#fbfcff,#fbfcff); border-color: #dbe4f5; }
 /* Collapsible sections (Course Description / Learning Objectives) */
 .collapse-sec { border: 1px solid #e7ebf2; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
@@ -287,8 +292,12 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .course-desc-box {
   background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px;
   padding: 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.5;
-  color: #555; max-height: 120px; overflow-y: auto;
+  color: #555; max-height: 150px; overflow-y: auto;
 }
+.course-desc-box strong { display: block; color: #1e2a4a; margin-bottom: 4px; }
+.course-desc-box p { margin: 0 0 8px; }
+/* Consolidated evaluation header (student + course info, compact) */
+.eval-info { background: #f7f9fc; border: 1px solid #e7ebf2; border-radius: 10px; padding: 12px 16px; }
 
 /* ── Buttons ── */
 .btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
@@ -889,6 +898,7 @@ function buildDemoData() {
       completion_deadline: e.d === 'inc' ? incDeadline(course) : null,
       supp_designation: (submitted && rnd() < 0.12) ? pick(SUPP) : '',
       public_narrative: submitted ? mkLongNarrative(name) : '',
+      read_by_student: submitted ? rnd() < 0.6 : false,
       status, submitted_at: submitted ? termDate(course) : null, updated_at: termDate(course),
     });
     // Every submitted evaluation carries BOTH narratives (Transcript + Advising).
@@ -909,7 +919,7 @@ function buildDemoData() {
     if (rnd() < 0.16) {
       const c = pick(ispCourses); stud.enrollments.push(c.id);
       eseq++; const id = 'e' + eseq; const name = stud.full_name;
-      d.evaluations.push({ id, student_id: stud.id, course_id: c.id, faculty_id: c.faculty_id, designation: pick(['strong_sat','sat','pass']), public_narrative: mkLongNarrative(name), status: 'submitted', submitted_at: '2026-01-26T10:00:00', updated_at: '2026-01-26T10:00:00' });
+      d.evaluations.push({ id, student_id: stud.id, course_id: c.id, faculty_id: c.faculty_id, designation: pick(['strong_sat','sat','pass']), public_narrative: mkLongNarrative(name), read_by_student: rnd() < 0.6, status: 'submitted', submitted_at: '2026-01-26T10:00:00', updated_at: '2026-01-26T10:00:00' });
       d.privateNotes[id] = mkAdvisingNarrative(name);
     }
   }
@@ -987,6 +997,7 @@ function buildDemoData() {
       d.evaluations.push({ id: eid, student_id: st.id, course_id: id, faculty_id: fid, designation: des,
         last_attend_date: des === 'inc' ? incLastDay(course, eseq) : null, completion_deadline: des === 'inc' ? incDeadline(course) : null,
         supp_designation: '', public_narrative: submitted ? mkLongNarrative(st.full_name) : '',
+        read_by_student: submitted ? rnd() < 0.6 : false,
         status, submitted_at: submitted ? '2026-05-08T10:00:00' : null, updated_at: '2026-05-08T10:00:00' });
       if (submitted) d.privateNotes[eid] = mkAdvisingNarrative(st.full_name);
     }
@@ -1596,18 +1607,18 @@ async function renderSidebar() {
       if (!appState.facultyTerm || !terms.includes(appState.facultyTerm)) {
         appState.facultyTerm = terms.includes(CURRENT_TERM) ? CURRENT_TERM : (terms[0] || CURRENT_TERM);
       }
-      html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Terms</div>';
+      html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Term</div>';
       if (terms.length === 0) {
         html += '<div style="padding:20px;color:#888;font-size:13px;">No courses on record.</div>';
       } else {
-        for (const t of terms) {
+        // A dropdown scales to instructors who have taught for decades.
+        const opts = terms.map(t => {
           const n = allCourses.filter(c => `${c.semester} ${c.year}` === t).length;
-          const active = (appState.facultyTerm === t && (appState.view === 'faculty-classes' || appState.view === 'course')) ? ' active' : '';
-          html += `<div class="sidebar-item${active}" onclick="navToFacultyTerm('${t}')">
-            <div class="si-title">${t}</div>
-            <div class="si-subtitle">${n} class${n !== 1 ? 'es' : ''}</div>
-          </div>`;
-        }
+          return `<option value="${t}"${t === appState.facultyTerm ? ' selected' : ''}>${t} — ${n} class${n !== 1 ? 'es' : ''}</option>`;
+        }).join('');
+        html += `<div style="padding:0 14px 6px;">
+          <select class="filter-select" style="width:100%;" onchange="navToFacultyTerm(this.value)">${opts}</select>
+        </div>`;
       }
     } catch(e) {
       html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Terms</div>';
@@ -1800,7 +1811,7 @@ async function renderFacultyClasses(mc) {
           <div style="color:#666;font-size:14px;">${u.full_name} · ${courses.length} class${courses.length !== 1 ? 'es' : ''}</div>
         </div>
       </div>
-      <div class="course-list">${cards || '<div class="card"><div class="card-body" style="text-align:center;color:#888;padding:30px;">No classes for this term.</div></div>'}</div>`;
+      <div class="course-list class-indent">${cards || '<div class="card"><div class="card-body" style="text-align:center;color:#888;padding:30px;">No classes for this term.</div></div>'}</div>`;
   } catch (e) {
     mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error loading classes: ${e.message}</div></div>`;
   }
@@ -1822,6 +1833,14 @@ function facultyClassCard(c) {
         <span class="reg-pill ${submitted === students && students > 0 ? 'reg-registered' : 'reg-withdrawn'}">${submitted}/${students} submitted</span>
       </div>
     </div>`;
+}
+
+// Roster read indicator: has the student opened their transcript narrative?
+function readIndicator(ev) {
+  if (!ev || ev.status !== 'submitted') return '<span style="color:#ccc;">—</span>';
+  return ev.read_by_student
+    ? '<span class="read-yes" title="The student has opened this evaluation">&#128065; Read</span>'
+    : '<span class="read-no" title="The student has not opened this evaluation yet">&#9679; Unread</span>';
 }
 
 // Toggle a collapsible section (Course Description / Learning Objectives).
@@ -1878,6 +1897,7 @@ async function renderCourseView(mc) {
         <td>${advisor}</td>
         <td>${standingCell}</td>
         <td style="text-align:center;">${check(official)}</td>
+        <td>${readIndicator(ev)}</td>
         <td>${desig}</td>
         <td>${status}</td>
       </tr>`;
@@ -1908,14 +1928,17 @@ async function renderCourseView(mc) {
 
       <div class="card">
         <div class="card-header">Class Roster <span style="font-weight:400;font-size:13px;color:#888;">${students.length} student${students.length !== 1 ? 's' : ''}</span></div>
-        <div class="card-body" style="overflow-x:auto;">
+        <div class="card-body">
+          <div style="font-size:12px;color:#7a8494;margin-bottom:8px;"><strong>Read</strong> shows whether the student has opened their evaluation: <span class="read-yes">&#128065; Read</span> · <span class="read-no">&#9679; Unread</span>.</div>
+          <div style="overflow-x:auto;">
           <table class="student-table">
             <thead><tr>
               <th>Student</th><th>Preferred</th><th>ID</th><th>Enroll.</th><th>Reg.</th><th>Credits</th>
-              <th>Advisor</th><th>Academic Standing</th><th>Official</th><th>Designation</th><th>Status</th>
+              <th>Advisor</th><th>Academic Standing</th><th>Official</th><th>Read</th><th>Designation</th><th>Status</th>
             </tr></thead>
-            <tbody>${rows || '<tr><td colspan="11" style="text-align:center;color:#888;padding:20px;">No students enrolled.</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="12" style="text-align:center;color:#888;padding:20px;">No students enrolled.</td></tr>'}</tbody>
           </table>
+          </div>
         </div>
       </div>`;
   } catch(e) {
@@ -2018,21 +2041,14 @@ async function renderEvaluationForm(mc) {
         <div class="card-body">
           ${lockNotice}${editWindowNotice}${viewerNotice}
 
-          <div class="eval-header-grid">
-            <div class="eval-field"><label>Student</label><div class="field-value">${student.full_name}</div></div>
-            <div class="eval-field"><label>N-Number</label><div class="field-value">${student.n_number}</div></div>
-            <div class="eval-field"><label>Course</label><div class="field-value">${course.name}</div></div>
-            <div class="eval-field"><label>CRN</label><div class="field-value">${course.crn || '—'}</div></div>
-            <div class="eval-field"><label>Subject / Number</label><div class="field-value">${(course.subject_code || '')} ${(course.course_number || '')}</div></div>
-            <div class="eval-field"><label>Instructor</label><div class="field-value">${instructorsOf(course, facultyName)}</div></div>
-            <div class="eval-field"><label>Semester / Year</label><div class="field-value">${course.semester} ${course.year}</div></div>
-            <div class="eval-field"><label>Session</label><div class="field-value">${course.session || '—'}</div></div>
-            <div class="eval-field"><label>Course Type</label><div class="field-value">${course.course_type || '—'}</div></div>
-            <div class="eval-field"><label>Registration Status</label><div class="field-value">${course.reg_status || '—'}</div></div>
-            <div class="eval-field"><label>Faculty Advisor</label><div class="field-value">${advisorName}</div></div>
-            <div class="eval-field"><label>Student Year</label><div class="field-value">${student.year_level}</div></div>
-            <div class="eval-field"><label>Contracts Completed</label><div class="field-value">${student.contracts_completed ?? '—'}</div></div>
-            <div class="eval-field"><label>AOC</label><div class="field-value">${student.aoc || '—'}</div></div>
+          <div class="eval-info">
+            <div style="font-size:15px;"><strong>${student.full_name}</strong> <span style="color:#888;">(${student.n_number})</span> <span style="color:#7a8494;">· Faculty Advisor: ${advisorName}</span></div>
+            <div style="font-weight:650;font-size:15.5px;margin-top:8px;color:#1e2a4a;">${course.name}</div>
+            <div style="font-size:12.5px;color:#7a8494;margin-top:2px;">${courseMetaLine(course)} · Registration: ${course.reg_status || '—'}</div>
+            <div style="font-size:13px;color:#445;margin-top:2px;">Instructor: ${instructorsOf(course, facultyName)}</div>
+          </div>
+
+          <div class="eval-header-grid" style="margin-top:14px;">
             <div class="eval-field">
               <label>Course Designation</label>
               <select class="designation-select" id="designationSelect" ${locked ? 'disabled' : ''} onchange="toggleAttendField()">
@@ -2069,18 +2085,19 @@ async function renderEvaluationForm(mc) {
             </div>
           </div>
 
-          <div class="course-desc-box"><strong>Course Description:</strong> ${course.description}</div>
-
-          <div class="rte-label">Narrative Evaluation for Transcript</div>
-          <div class="rte-wrapper${locked ? ' readonly' : ''}" id="publicEditorWrapper">
-            <div id="publicEditorContainer"></div>
-          </div>
+          <div class="course-desc-box"><strong>Course Description</strong>${course.description || ' —'}</div>
+          <div class="course-desc-box"><strong>Learning Objectives</strong>${course.learning_objectives || ' —'}</div>
 
           ${canSeePrivate ? `
           <div class="rte-label private-label">Narrative Evaluation for Advising</div>
           <div class="rte-wrapper${locked ? ' readonly' : ''}" id="privateEditorWrapper">
             <div id="privateEditorContainer"></div>
           </div>` : ''}
+
+          <div class="rte-label">Narrative Evaluation for Transcript</div>
+          <div class="rte-wrapper${locked ? ' readonly' : ''}" id="publicEditorWrapper">
+            <div id="publicEditorContainer"></div>
+          </div>
 
           <div class="btn-group">
             ${locked
@@ -2331,11 +2348,11 @@ function evalDocumentPageHtml(entry) {
       </div>`;
       })()}
 
+      ${internalBlock(entry)}
+
       <div class="doc-h2">Narrative Evaluation for Transcript</div>
       <div class="doc-stmt">${EXTERNAL_STATEMENT}</div>
       <div class="doc-body">${narr}</div>
-
-      ${internalBlock(entry)}
 
       <div class="doc-footnote">${FOOTER_STATEMENT}</div>
       <div class="doc-printed">${printedTimestamp()}</div>
@@ -2627,7 +2644,8 @@ function renderStudentList() {
     html += `<div class="term-divider">${key}</div>`;
     // Contract certification belongs with its term (demo carries the current one).
     if (key === CURRENT_TERM) { const cc = studentContractRow(u.student_id); if (cc) html += cc; }
-    html += '<div class="course-list">';
+    // Classes are indented under the term / contract header.
+    html += '<div class="course-list class-indent">';
     for (const { course, ev } of groups[key]) html += studentCourseRow(course, ev);
     html += '</div>';
   }
@@ -2738,17 +2756,18 @@ async function openStudentNarrative(courseId) {
   const faculty = demoData.profiles.find(p => p.id === (ev.faculty_id || course.faculty_id));
   Data.logAccess('view_evaluation', 'evaluation', ev.id, u.student_id);
   markNarrativeRead(ev.id);
+  ev.read_by_student = true;   // reflected in the faculty roster's Read column
   const incRow = ev.designation === 'inc'
     ? `<div style="margin-top:6px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev.last_attend_date)} <span style="color:#888;">(Banner)</span></div>` : '';
   document.getElementById('evalPanelBody').innerHTML = `
     <div style="font-size:13px;color:#888;margin-bottom:6px;">${faculty?.full_name || ''} · ${course.semester} ${course.year}</div>
     <div style="margin-bottom:8px;"><strong>Designation:</strong> ${getDesignationPill(ev.designation)} &nbsp; <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${ev.submitted_at ? new Date(ev.submitted_at).toLocaleDateString() : '—'}</span></div>
     ${incRow}
-    <div class="rte-label" style="margin-top:12px;">Narrative Evaluation for Transcript</div>
-    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${ev.public_narrative || '<span style="color:#888;">Not available.</span>'}</div></div>
     ${privateNarr ? `
-    <div class="rte-label private-label" style="margin-top:14px;">Narrative Evaluation for Advising</div>
+    <div class="rte-label private-label" style="margin-top:12px;">Narrative Evaluation for Advising</div>
     <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${privateNarr}</div></div>` : ''}
+    <div class="rte-label" style="margin-top:14px;">Narrative Evaluation for Transcript</div>
+    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${ev.public_narrative || '<span style="color:#888;">Not available.</span>'}</div></div>
     <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="printStudentNarrative('${courseId}')">Print / PDF</button></div>`;
   renderStudentList();   // refresh the unread markers behind the panel
 }
@@ -3170,10 +3189,10 @@ async function openEvalPanel(studentId, courseId) {
       ${desig === 'inc' ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev?.last_attend_date)} <span style="color:#888;">(Banner)</span></div>
       <div style="font-size:13px;color:#b8860b;"><strong>Completion Deadline:</strong> ${ev?.completion_deadline ? fmtAttend(ev.completion_deadline) : '—'}</div>` : ''}
       ${ev?.supp_designation ? `<div style="margin-top:6px;font-size:13px;"><strong>Supplementary Designation (GPA-proxy):</strong> ${ev.supp_designation}</div>` : ''}
-      <div class="rte-label" style="margin-top:16px;">Narrative Evaluation for Transcript</div>
-      <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev?.public_narrative || '<span style="color:#888;">Not written yet.</span>'}</div></div>
       ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Narrative Evaluation for Advising</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div></div>` : ''}
+      <div class="rte-label" style="margin-top:16px;">Narrative Evaluation for Transcript</div>
+      <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev?.public_narrative || '<span style="color:#888;">Not written yet.</span>'}</div></div>
       <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="openFullEvalFromPanel('${studentId}','${courseId}')">Open full evaluation ›</button></div>`;
   } catch (e) {
     body.innerHTML = `<div style="color:#c00;">Error: ${e.message}</div>`;
