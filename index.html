@@ -1641,6 +1641,13 @@ async function renderSidebar() {
         html += `<div style="padding:0 14px 6px;">
           <select class="filter-select" style="width:100%;" onchange="navToFacultyTerm(this.value)">${opts}</select>
         </div>`;
+        // A persistent link back to the class list (the dropdown alone won't
+        // return here when the same term is re-selected).
+        const classesActive = (appState.view === 'faculty-classes' || appState.view === 'course') ? ' active' : '';
+        html += `<div class="sidebar-item${classesActive}" onclick="navToFacultyTerm(appState.facultyTerm)">
+          <div class="si-title">&#128218; Class List</div>
+          <div class="si-subtitle">${appState.facultyTerm}</div>
+        </div>`;
       }
     } catch(e) {
       html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Terms</div>';
