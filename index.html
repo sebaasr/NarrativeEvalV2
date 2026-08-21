@@ -197,6 +197,12 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 @media (max-width: 640px) { .class-indent { margin-left: 12px; } }
 .read-yes { color: #1e7e34; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .read-no { color: #b8860b; font-size: 12px; font-weight: 600; white-space: nowrap; }
+/* Class roster: match the Course Description font; whole row clickable */
+.roster-table { font-size: 14px; color: #2c3440; }
+.roster-table tbody tr.clickable-row { cursor: pointer; transition: background .12s; }
+.roster-table tbody tr.clickable-row:hover { background: #f2f6ff; }
+.roster-table tbody tr.early-row > td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
+.early-chip { display: inline-block; background: #fff4d6; color: #8a6100; border: 1px solid #f0d98a; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
 .contract-row { background: linear-gradient(0deg,#fbfcff,#fbfcff); border-color: #dbe4f5; margin-bottom: 20px; }
 /* Collapsible sections (Course Description / Learning Objectives) */
 .collapse-sec { border: 1px solid #e7ebf2; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
@@ -298,6 +304,8 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .course-desc-box p { margin: 0 0 8px; }
 /* Consolidated evaluation header (student + course info, compact) */
 .eval-info { background: #f7f9fc; border: 1px solid #e7ebf2; border-radius: 10px; padding: 12px 16px; }
+.field-disabled { opacity: 0.45; }
+.field-disabled input { cursor: not-allowed; }
 
 /* ── Buttons ── */
 .btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
@@ -835,10 +843,12 @@ function buildDemoData() {
     const prof = { id: f.id, email: f.id + '@ncf.edu', full_name: reformat(f.name), role: 'faculty', is_advisor: A.advisorFac.includes(f.id), division: f.div || '', login: false };
     d.profiles.push(prof); facById[f.id] = prof;
   }
-  A.advisorFac.slice(0, 6).forEach(fid => { if (facById[fid]) facById[fid].login = true; });
-  d.profiles.push({ id: 'r1', email: 'registrar@ncf.edu', full_name: 'Registrar Office', role: 'registrar', is_advisor: false, division: "Registrar's Office", login: true });
-  d.profiles.push({ id: 'po', email: 'provost@ncf.edu', full_name: 'Provost Office', role: 'po_office', is_advisor: false, division: "Provost's Office", login: true });
-  d.profiles.push({ id: 'ad', email: 'admin@ncf.edu', full_name: 'Admin User', role: 'admin', is_advisor: false, division: 'Academic Affairs', login: true });
+  // Only two curated logins are exposed (Jules Ingram = fa5). Other roles still
+  // exist as profiles (for lookups) but are hidden from the login dropdown.
+  if (facById['fa5']) facById['fa5'].login = true;
+  d.profiles.push({ id: 'r1', email: 'registrar@ncf.edu', full_name: 'Registrar Office', role: 'registrar', is_advisor: false, division: "Registrar's Office", login: false });
+  d.profiles.push({ id: 'po', email: 'provost@ncf.edu', full_name: 'Provost Office', role: 'po_office', is_advisor: false, division: "Provost's Office", login: false });
+  d.profiles.push({ id: 'ad', email: 'admin@ncf.edu', full_name: 'Admin User', role: 'admin', is_advisor: false, division: 'Academic Affairs', login: false });
 
   // Courses (real). Banner-style metadata fields are synthesized (see helpers above).
   const courseById = {};
@@ -894,7 +904,7 @@ function buildDemoData() {
     d.evaluations.push({
       id, student_id: stud.id, course_id: course.id, faculty_id: course.faculty_id,
       designation: e.d || '',
-      last_attend_date: e.d === 'inc' ? incLastDay(course, eseq) : null,
+      last_attend_date: e.d === 'unsat' ? incLastDay(course, eseq) : null,
       completion_deadline: e.d === 'inc' ? incDeadline(course) : null,
       supp_designation: (submitted && rnd() < 0.12) ? pick(SUPP) : '',
       public_narrative: submitted ? mkLongNarrative(name) : '',
@@ -924,44 +934,54 @@ function buildDemoData() {
     }
   }
 
-  // Two student logins: pick students with current-term enrollments.
+  // Single student login = Nathan Lindqvist (the first student with a current-term
+  // enrollment, renamed so the demo has a stable, recognizable student).
   const spring = d.students.filter(s => s.enrollments.some(cid => { const c = courseById[cid]; return c && c.semester === 'Spring' && c.year === 2026; }));
-  [spring[0], spring[1]].forEach((s, i) => {
-    if (!s) return;
-    d.profiles.push({ id: 'u_' + s.id, email: `student${i + 1}@ncf.edu`, full_name: s.full_name, role: 'student', is_advisor: false, division: s.aoc, student_id: s.id, login: true });
-    // Guarantee at least one co-taught course shows on each demo student's list.
-    const co = s.enrollments.map(cid => courseById[cid]).find(c => c && c.instructors && c.instructors.length === 1);
+  const nathan = spring[0];
+  if (nathan) {
+    nathan.full_name = 'Nathan Lindqvist';
+    nathan.preferred_name = 'Nathan';
+    d.profiles.push({ id: 'u_' + nathan.id, email: 'student1@ncf.edu', full_name: nathan.full_name, role: 'student', is_advisor: false, division: nathan.aoc, student_id: nathan.id, login: true });
+    // Show a co-taught course on Nathan's list.
+    const co = nathan.enrollments.map(cid => courseById[cid]).find(c => c && c.instructors && c.instructors.length === 1);
     if (co) co.instructors.push(`${pick(FIRST)} ${pick(LAST)}`);
-  });
-  // Guarantee the first demo student (student1) has a supplementary designation
-  // (GPA-proxy) on a few of their courses so the demo shows it clearly.
-  if (spring[0]) {
-    const supEvs = d.evaluations.filter(e => e.student_id === spring[0].id && e.status === 'submitted').slice(0, 3);
-    supEvs.forEach(e => { e.supp_designation = 'Strong Satisfactory'; });
-  }
-  // Seed a certified current-term contract for the first student login so the
-  // student can see their advisor's contract certification in the demo.
-  if (spring[0]) {
-    d.contracts[spring[0].id] = {
-      student_id: spring[0].id, term: 'Spring 2026', designation: 'sat',
-      certified: true, certified_at: '2026-05-09T14:20:00',
-      banner_pushed: true, banner_pushed_at: '2026-05-09T14:22:00',
-      enrollment_status: 'Enrolled', contract_criteria: spring[0].contract_criteria || '3 / 4',
-      completion_deadline: null,
-      internal_narrative: `<p>${spring[0].full_name.split(' ')[0]},</p><p>You have met the terms of the Spring 2026 contract. Progress toward the area of concentration is on track, and the semester's coursework was completed satisfactorily. We discussed goals for the coming term during advising.</p>`,
-    };
-  }
-  // Second student login: an INCOMPLETE contract, so the completion deadline shows.
-  if (spring[1]) {
-    d.contracts[spring[1].id] = {
-      student_id: spring[1].id, term: 'Spring 2026', designation: 'inc',
-      certified: true, certified_at: '2026-05-09T15:05:00',
-      banner_pushed: true, banner_pushed_at: '2026-05-09T15:06:00',
-      enrollment_status: 'Enrolled',
-      contract_criteria: spring[1].contract_criteria || '2 / 4 — I will complete the outstanding ISP requirement this January.',
-      completion_deadline: '2026-09-15',
-      internal_narrative: `<p>${spring[1].full_name.split(' ')[0]},</p><p>Two contract activities remain outstanding at the close of the term. We agreed on a plan to finish them; please keep to the schedule we set so the contract can be certified as satisfactory.</p>`,
-    };
+
+    // Supplementary designation (GPA-proxy) on a few of Nathan's courses — a
+    // legacy field kept only for display.
+    d.evaluations.filter(e => e.student_id === nathan.id && e.status === 'submitted').slice(0, 3)
+      .forEach(e => { e.supp_designation = 'Strong Satisfactory'; });
+
+    // Make sure Nathan has some Fall 2025 and Spring 2025 coursework (with evals)
+    // so those terms appear — and carry their own contract certification.
+    for (const [sem, yr, date] of [['Fall', 2025, '2025-12-15T10:00:00'], ['Spring', 2025, '2025-05-08T10:00:00']]) {
+      const already = nathan.enrollments.map(cid => courseById[cid]).filter(c => c && c.semester === sem && c.year === yr);
+      const pool = d.courses.filter(c => c.semester === sem && c.year === yr && !c.id.startsWith('fc'));
+      let have = already.slice();
+      while (have.length < 3 && pool.length) {
+        const c = pick(pool);
+        if (nathan.enrollments.includes(c.id)) continue;
+        nathan.enrollments.push(c.id); have.push(c);
+        eseq++; const eid = 'e' + eseq; const dgn = pick(['strong_sat', 'sat', 'marginal_sat', 'pass']);
+        d.evaluations.push({ id: eid, student_id: nathan.id, course_id: c.id, faculty_id: c.faculty_id, designation: dgn,
+          last_attend_date: null, completion_deadline: null, supp_designation: '', public_narrative: mkLongNarrative(nathan.full_name),
+          read_by_student: rnd() < 0.6, status: 'submitted', submitted_at: date, updated_at: date });
+        d.privateNotes[eid] = mkAdvisingNarrative(nathan.full_name);
+      }
+    }
+
+    // Contract certifications for Nathan across three terms.
+    const advFirst = 'Nathan';
+    const mkContract = (term, date, criteria, narr) => ({
+      student_id: nathan.id, term, designation: 'sat', certified: true, certified_at: date,
+      banner_pushed: true, banner_pushed_at: date, enrollment_status: 'Enrolled',
+      contract_criteria: criteria, completion_deadline: null, internal_narrative: narr,
+    });
+    d.contracts[contractKey(nathan.id, 'Spring 2026')] = mkContract('Spring 2026', '2026-05-09T14:20:00', nathan.contract_criteria || '3 / 4',
+      `<p>${advFirst},</p><p>You have met the terms of the Spring 2026 contract. Progress toward the area of concentration is on track, and the semester's coursework was completed satisfactorily. We discussed goals for the coming term during advising.</p>`);
+    d.contracts[contractKey(nathan.id, 'Fall 2025')] = mkContract('Fall 2025', '2025-12-16T11:00:00', '4 / 4 — I will complete the statistics sequence.',
+      `<p>${advFirst},</p><p>A strong fall term. You completed all four contract activities and made real progress on the area of concentration. Keep up the momentum into the spring.</p>`);
+    d.contracts[contractKey(nathan.id, 'Spring 2025')] = mkContract('Spring 2025', '2025-05-10T09:30:00', '3 / 4 — I will attend all scheduled advising meetings.',
+      `<p>${advFirst},</p><p>Satisfactory work this semester. We discussed strategies for balancing your course load, and I am confident about your trajectory. Nicely done.</p>`);
   }
 
   // ── Ensure each demo (login) faculty has a full current-term class list ──
@@ -995,7 +1015,7 @@ function buildDemoData() {
       const x = rnd();
       const des = submitted ? (x < 0.3 ? 'strong_sat' : x < 0.7 ? 'sat' : x < 0.85 ? 'marginal_sat' : x < 0.92 ? 'unsat' : x < 0.97 ? 'pass' : 'inc') : '';
       d.evaluations.push({ id: eid, student_id: st.id, course_id: id, faculty_id: fid, designation: des,
-        last_attend_date: des === 'inc' ? incLastDay(course, eseq) : null, completion_deadline: des === 'inc' ? incDeadline(course) : null,
+        last_attend_date: des === 'unsat' ? incLastDay(course, eseq) : null, completion_deadline: des === 'inc' ? incDeadline(course) : null,
         supp_designation: '', public_narrative: submitted ? mkLongNarrative(st.full_name) : '',
         read_by_student: submitted ? rnd() < 0.6 : false,
         status, submitted_at: submitted ? '2026-05-08T10:00:00' : null, updated_at: '2026-05-08T10:00:00' });
@@ -1174,15 +1194,16 @@ const Data = {
         course_id: courseId,
         faculty_id: facultyId || appState.currentUser?.id,
         designation: evalData.designation,
-        // Last date of attendance / completion deadline — only for an Incomplete.
-        last_attend_date: evalData.designation === 'inc'
+        // Last date of attendance applies to Unsatisfactory; the incomplete
+        // extension deadline applies to Incomplete.
+        last_attend_date: evalData.designation === 'unsat'
           ? (evalData.lastAttendDate ?? (idx >= 0 ? demoData.evaluations[idx].last_attend_date : null))
           : null,
         completion_deadline: evalData.designation === 'inc'
           ? (evalData.completionDeadline ?? (idx >= 0 ? demoData.evaluations[idx].completion_deadline : null))
           : null,
-        // Optional GPA-proxy the student may have requested.
-        supp_designation: evalData.suppDesignation ?? (idx >= 0 ? demoData.evaluations[idx].supp_designation : ''),
+        // Supplementary designation (GPA-proxy) is a legacy field: preserved, never newly captured.
+        supp_designation: idx >= 0 ? demoData.evaluations[idx].supp_designation : '',
         public_narrative: evalData.publicNarrative,
         status: evalData.status,
         submitted_at: evalData.status === 'submitted' ? (idx >= 0 && demoData.evaluations[idx].submitted_at ? demoData.evaluations[idx].submitted_at : now) : null,
@@ -1517,14 +1538,18 @@ function fmtAttend(d) {
 }
 
 // Show the Last Day of Attendance field only when the designation is Incomplete.
-function toggleAttendField() {
+// Enable Last Date of Attendance only for Unsatisfactory, and Incomplete
+// Extension Deadline only for Incomplete; otherwise gray them out.
+function toggleDesigFields() {
   const sel = document.getElementById('designationSelect');
   if (!sel) return;
-  const show = sel.value === 'inc' ? '' : 'none';
-  const attend = document.getElementById('attendField');
-  const deadline = document.getElementById('deadlineField');
-  if (attend) attend.style.display = show;
-  if (deadline) deadline.style.display = show;
+  const v = sel.value;
+  const attend = document.getElementById('attendDate'), attendWrap = document.getElementById('attendFieldWrap');
+  const deadline = document.getElementById('deadlineDate'), deadlineWrap = document.getElementById('deadlineFieldWrap');
+  if (attend) { attend.disabled = v !== 'unsat'; if (v !== 'unsat') attend.value = ''; }
+  if (attendWrap) attendWrap.classList.toggle('field-disabled', v !== 'unsat');
+  if (deadline) { deadline.disabled = v !== 'inc'; if (v !== 'inc') deadline.value = ''; }
+  if (deadlineWrap) deadlineWrap.classList.toggle('field-disabled', v !== 'inc');
   markDirty();
 }
 
@@ -1589,13 +1614,10 @@ async function renderSidebar() {
 
   // ── Student: read-only view of their own evaluations, grouped by semester ──
   if (u.role === 'student') {
-    // The student lands directly on the full course list (grouped by term), so
-    // the sidebar just needs a single entry — no per-term navigation.
+    // The student lands directly on the full course list (grouped by term).
     html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">My Evaluations</div>';
-    const active = (appState.view === 'student-home' || appState.view === 'default') ? ' active' : '';
-    html += `<div class="sidebar-item${active}" onclick="navToStudentHome()">
-      <div class="si-title">My Narrative Evaluations</div>
-      <div class="si-subtitle">All courses by term</div>
+    html += `<div style="padding:6px 14px;">
+      <button class="btn btn-primary btn-sm" style="width:100%;" onclick="printAllEvaluations()">&#128424; Print All Evaluations</button>
     </div>`;
   }
 
@@ -1867,11 +1889,13 @@ async function renderCourseView(mc) {
   if (!course && USE_DEMO) { mc.innerHTML = '<div class="loading">Course not found.</div>'; return; }
 
   try {
-    const students = await Data.getCourseStudents(appState.selectedCourseId);
+    const students = (await Data.getCourseStudents(appState.selectedCourseId))
+      .slice().sort((a, b) => a.full_name.localeCompare(b.full_name));   // alphabetical
     const courseObj = USE_DEMO ? course : { name: '', description: '', semester: '', year: '', faculty_id: '' };
     const facultyName = USE_DEMO ? (demoData.profiles.find(p => p.id === courseObj.faculty_id)?.full_name || '') : '';
     const term = `${courseObj.semester} ${courseObj.year}`;
     const credits = Number(courseObj.credit_hours ?? 3).toFixed(1);
+    let anyEarly = false;
 
     let rows = '';
     for (const s of students) {
@@ -1887,8 +1911,13 @@ async function renderCourseView(mc) {
       const advisor = s.advisor ? s.advisor.full_name : (USE_DEMO ? (demoData.profiles.find(p => p.id === s.advisor_id)?.full_name || '—') : '—');
       const preferred = s.preferred_name && s.preferred_name !== s.full_name.split(' ')[0]
         ? s.preferred_name : (s.preferred_name || '—');
-      rows += `<tr>
-        <td class="clickable" onclick="openEvaluation('${s.id}','${appState.selectedCourseId}')"><strong>${s.full_name}</strong></td>
+      // Students whose evaluations are due early: graduating seniors or on probation.
+      const early = s.year_level === 'Fourth Year' || standing === 'Academic Probation';
+      if (early) anyEarly = true;
+      const earlyChip = early
+        ? ` <span class="early-chip" title="Graded early — ${s.year_level === 'Fourth Year' ? 'expected to graduate' : 'academic probation'}">&#9201; Early</span>` : '';
+      rows += `<tr class="clickable-row${early ? ' early-row' : ''}" onclick="openEvaluation('${s.id}','${appState.selectedCourseId}')">
+        <td><strong>${s.full_name}</strong>${earlyChip}</td>
         <td>${preferred}</td>
         <td>${s.n_number}</td>
         <td>Enrolled</td>
@@ -1929,9 +1958,12 @@ async function renderCourseView(mc) {
       <div class="card">
         <div class="card-header">Class Roster <span style="font-weight:400;font-size:13px;color:#888;">${students.length} student${students.length !== 1 ? 's' : ''}</span></div>
         <div class="card-body">
-          <div style="font-size:12px;color:#7a8494;margin-bottom:8px;"><strong>Read</strong> shows whether the student has opened their evaluation: <span class="read-yes">&#128065; Read</span> · <span class="read-no">&#9679; Unread</span>.</div>
+          <div style="font-size:12px;color:#7a8494;margin-bottom:8px;">
+            <strong>Read</strong>: <span class="read-yes">&#128065; Read</span> · <span class="read-no">&#9679; Unread</span> shows whether the student has opened their evaluation.
+            ${anyEarly ? '&nbsp;·&nbsp; <span class="early-chip">&#9201; Early</span> = evaluation due earlier (graduating senior or academic probation).' : ''}
+          </div>
           <div style="overflow-x:auto;">
-          <table class="student-table">
+          <table class="student-table roster-table">
             <thead><tr>
               <th>Student</th><th>Preferred</th><th>ID</th><th>Enroll.</th><th>Reg.</th><th>Credits</th>
               <th>Advisor</th><th>Academic Standing</th><th>Official</th><th>Read</th><th>Designation</th><th>Status</th>
@@ -2039,10 +2071,10 @@ async function renderEvaluationForm(mc) {
                  : '<span class="status-badge status-not-started">New</span>'}
         </div>
         <div class="card-body">
-          ${lockNotice}${editWindowNotice}${viewerNotice}
+          ${viewerNotice}
 
           <div class="eval-info">
-            <div style="font-size:15px;"><strong>${student.full_name}</strong> <span style="color:#888;">(${student.n_number})</span> <span style="color:#7a8494;">· Faculty Advisor: ${advisorName}</span></div>
+            <div style="font-size:15px;"><strong>${student.full_name}</strong> <span style="color:#888;">(${student.n_number})</span></div>
             <div style="font-weight:650;font-size:15.5px;margin-top:8px;color:#1e2a4a;">${course.name}</div>
             <div style="font-size:12.5px;color:#7a8494;margin-top:2px;">${courseMetaLine(course)} · Registration: ${course.reg_status || '—'}</div>
             <div style="font-size:13px;color:#445;margin-top:2px;">Instructor: ${instructorsOf(course, facultyName)}</div>
@@ -2051,7 +2083,7 @@ async function renderEvaluationForm(mc) {
           <div class="eval-header-grid" style="margin-top:14px;">
             <div class="eval-field">
               <label>Course Designation</label>
-              <select class="designation-select" id="designationSelect" ${locked ? 'disabled' : ''} onchange="toggleAttendField()">
+              <select class="designation-select" id="designationSelect" ${locked ? 'disabled' : ''} onchange="toggleDesigFields()">
                 <option value="">— Select Designation —</option>
                 <option value="strong_sat"   ${designation==='strong_sat'   ? 'selected':''}>Strong Satisfactory</option>
                 <option value="sat"          ${designation==='sat'          ? 'selected':''}>Satisfactory</option>
@@ -2062,27 +2094,26 @@ async function renderEvaluationForm(mc) {
                 <option value="inc"          ${designation==='inc'          ? 'selected':''}>Incomplete</option>
               </select>
             </div>
-            <div class="eval-field" id="attendField" style="${designation==='inc' ? '' : 'display:none;'}">
-              <label>Last Day of Attendance <span style="font-weight:400;color:#888;">(Banner)</span></label>
+            <div class="eval-field${designation==='unsat' ? '' : ' field-disabled'}" id="attendFieldWrap">
+              <label>Last Date of Attendance</label>
               ${locked
                 ? `<div class="field-value">${ev?.last_attend_date ? fmtAttend(ev.last_attend_date) : '—'}</div>`
-                : `<input type="date" class="designation-select" id="attendDate" value="${ev?.last_attend_date || ''}" onchange="markDirty()">`}
-              <div style="font-size:11px;color:#888;margin-top:3px;">Required for an Incomplete — the student's last date of academic attendance.</div>
+                : `<input type="date" class="designation-select" id="attendDate" value="${ev?.last_attend_date || ''}" ${designation==='unsat' ? '' : 'disabled'} onchange="markDirty()">`}
+              <div style="font-size:11px;color:#888;margin-top:3px;">Active only when the designation is Unsatisfactory.</div>
             </div>
-            <div class="eval-field" id="deadlineField" style="${designation==='inc' ? '' : 'display:none;'}">
-              <label>Completion Deadline</label>
+            <div class="eval-field${designation==='inc' ? '' : ' field-disabled'}" id="deadlineFieldWrap">
+              <label>Incomplete Extension Deadline</label>
               ${locked
                 ? `<div class="field-value">${ev?.completion_deadline ? fmtAttend(ev.completion_deadline) : '—'}</div>`
-                : `<input type="date" class="designation-select" id="deadlineDate" value="${ev?.completion_deadline || ''}" onchange="markDirty()">`}
-              <div style="font-size:11px;color:#888;margin-top:3px;">Date by which the incomplete work must be finished.</div>
+                : `<input type="date" class="designation-select" id="deadlineDate" value="${ev?.completion_deadline || ''}" ${designation==='inc' ? '' : 'disabled'} onchange="markDirty()">`}
+              <div style="font-size:11px;color:#888;margin-top:3px;">Active only when the designation is Incomplete.</div>
             </div>
+            ${ev?.supp_designation ? `
             <div class="eval-field">
               <label>Supplementary Designation <span style="font-weight:400;color:#888;">(GPA-proxy)</span></label>
-              ${locked
-                ? `<div class="field-value">${ev?.supp_designation || '—'}</div>`
-                : `<input type="text" class="designation-select" id="suppDesig" maxlength="4" placeholder="e.g. A-" value="${ev?.supp_designation || ''}" onchange="markDirty()">`}
-              <div style="font-size:11px;color:#888;margin-top:3px;">Optional — only if the student requested one.</div>
-            </div>
+              <div class="field-value">${ev.supp_designation}</div>
+              <div style="font-size:11px;color:#888;margin-top:3px;">Legacy record — no longer captured.</div>
+            </div>` : ''}
           </div>
 
           <div class="course-desc-box"><strong>Course Description</strong>${course.description || ' —'}</div>
@@ -2103,7 +2134,7 @@ async function renderEvaluationForm(mc) {
             ${locked
               ? `<button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
               : canEditSubmitted
-                ? `<button class="btn btn-success" onclick="saveSubmittedCorrection()">Save corrections</button>
+                ? `<button class="btn btn-success" onclick="saveSubmittedCorrection()">Save</button>
                    <button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
                 : `<button class="btn btn-secondary" onclick="performSave('draft', true)">Save Draft</button>
                    <button class="btn btn-primary" onclick="submitDesignationOnly()">Submit Designation only</button>
@@ -2171,25 +2202,20 @@ async function performSave(status, showMsg, opts = {}) {
   const designation    = document.getElementById('designationSelect')?.value || '';
   const publicNarr     = _publicQuill.root.innerHTML;
   const privateNarr    = _privateQuill ? _privateQuill.root.innerHTML : undefined;
+  // Last Date of Attendance applies to Unsatisfactory; Incomplete Extension
+  // Deadline applies to Incomplete.
   const lastAttendDate = document.getElementById('attendDate')?.value || '';
   const completionDeadline = document.getElementById('deadlineDate')?.value || '';
-  const suppDesignation = document.getElementById('suppDesig')?.value.trim() || '';
 
   if (status === 'submitted' && opts.requireDesignation !== false && !designation) {
     showToast('Please select a course designation before submitting.', '#dc3545');
-    return;
-  }
-  // An Incomplete requires the last date of attendance (Banner) before submitting.
-  if (status === 'submitted' && designation === 'inc' && !lastAttendDate) {
-    showToast('Enter the Last Day of Attendance (Banner) for an Incomplete.', '#dc3545');
-    toggleAttendField();
     return;
   }
 
   const saved = await Data.saveEvaluation(
     appState.selectedStudentId,
     appState.selectedCourseId,
-    { designation, lastAttendDate, completionDeadline, suppDesignation, publicNarrative: publicNarr, privateNarrative: privateNarr, status },
+    { designation, lastAttendDate, completionDeadline, publicNarrative: publicNarr, privateNarrative: privateNarr, status },
     appState.currentUser?.id
   );
 
@@ -2246,7 +2272,6 @@ async function saveSubmittedCorrection() {
   if (!_publicQuill) return;
   const publicNarr = _publicQuill.root.innerHTML;
   if (!publicNarr.replace(/<[^>]*>|&nbsp;|\s/g, '').length) { showToast('The narrative cannot be emptied.', '#dc3545'); return; }
-  if (!confirm('Save corrections to this submitted evaluation? The updated version replaces the record and the change is logged.')) return;
   await performSave('submitted', true, { requireDesignation: false });
   Data.logAccess('amend_evaluation', 'evaluation', appState.currentEvalId, appState.selectedStudentId);
 }
@@ -2343,7 +2368,8 @@ function evalDocumentPageHtml(entry) {
         ${catalog ? `<div class="doc-line">${catalog}</div>` : ''}
         ${docMetaLine('Instructor', instructors)}
         ${docMetaLine('Designation', ev?.designation ? designationLabel(ev.designation) : '')}
-        ${docMetaLine('Completion Deadline', (ev?.designation === 'inc' && ev.completion_deadline) ? fmtAttend(ev.completion_deadline) : '')}
+        ${(ev?.designation === 'unsat' && ev.last_attend_date) ? docMetaLine('Last Date of Attendance', fmtAttend(ev.last_attend_date)) : ''}
+        ${(ev?.designation === 'inc' && ev.completion_deadline) ? docMetaLine('Incomplete Extension Deadline', fmtAttend(ev.completion_deadline)) : ''}
         ${ev?.supp_designation ? docMetaLine('Supplementary Designation (GPA-proxy)', ev.supp_designation) : ''}
       </div>`;
       })()}
@@ -2437,13 +2463,13 @@ function openEvalDocument(entries, title) {
 }
 
 // Print a contract certification (advisor or student view).
-function printContractCertification(studentId) {
+function printContractCertification(studentId, term = CURRENT_TERM) {
   const student = USE_DEMO ? demoData.students.find(s => s.id === studentId) : null;
   if (!student) return;
-  const contract = getContract(studentId);
+  const contract = getContract(studentId, term);
   const advisor = USE_DEMO ? demoData.profiles.find(p => p.id === student.advisor_id) : null;
   openEvalDocument(
-    [{ type: 'contract', student, contract, advisor, term: contract.term || CURRENT_TERM }],
+    [{ type: 'contract', student, contract, advisor, term: contract.term || term }],
     `${student.full_name} — Contract Certification`
   );
 }
@@ -2642,8 +2668,8 @@ function renderStudentList() {
   let html = '';
   for (const key of Object.keys(groups).sort(semesterSortDesc)) {
     html += `<div class="term-divider">${key}</div>`;
-    // Contract certification belongs with its term (demo carries the current one).
-    if (key === CURRENT_TERM) { const cc = studentContractRow(u.student_id); if (cc) html += cc; }
+    // Contract certification belongs with its term (any term that has one).
+    html += studentContractRow(u.student_id, key);
     // Classes are indented under the term / contract header.
     html += '<div class="course-list class-indent">';
     for (const { course, ev } of groups[key]) html += studentCourseRow(course, ev);
@@ -2694,28 +2720,15 @@ function studentCourseRow(course, ev) {
     </div>`;
 }
 
-// The advisor's contract certification, shown as a row within the current term.
-function studentContractRow(studentId) {
-  const contract = getContract(studentId);
+// The advisor's contract certification for a given term, shown as a row.
+function studentContractRow(studentId, term) {
+  const contract = getContract(studentId, term);
+  if (!contract.certified) return '';   // only show certified contracts
   const advisor = USE_DEMO ? demoData.profiles.find(p => p.id === demoData.students.find(s => s.id === studentId)?.advisor_id) : null;
-  // Criteria can carry a wordy free-text component alongside the count.
   const criteriaLine = contract.contract_criteria
     ? `<div class="course-row-inst"><span style="color:#7a8494;">Contract Criteria:</span> ${contract.contract_criteria}</div>` : '';
   const enrollLine = `<span style="color:#7a8494;">Enrollment Status:</span> ${contract.enrollment_status || 'Enrolled'}`;
-
-  if (!contract.certified) {
-    return `
-      <div class="course-row contract-row">
-        <div class="course-row-main">
-          <div class="course-row-title">Contract Certification <span class="pill-muted">Pending</span></div>
-          <div class="course-row-meta">${CURRENT_TERM} · Advisor: ${advisor?.full_name || '—'}</div>
-          <div class="course-row-inst">${enrollLine}</div>
-          ${criteriaLine}
-        </div>
-        <div class="course-row-side"><span class="pill-muted">Not yet certified</span></div>
-      </div>`;
-  }
-  const unread = !isNarrativeRead('contract:' + studentId);
+  const unread = !isNarrativeRead('contract:' + studentId + ':' + term);
   const desig = contractDesignationLabel(contract.designation);
   const deadline = (contract.designation === 'inc' && contract.completion_deadline)
     ? `<div class="row-deadline">Completion Deadline: <strong>${fmtAttend(contract.completion_deadline)}</strong></div>` : '';
@@ -2723,7 +2736,7 @@ function studentContractRow(studentId) {
     <div class="course-row contract-row${unread ? ' course-row-unread' : ''}">
       <div class="course-row-main">
         <div class="course-row-title">Contract Certification${unread ? ' <span class="unread-dot" title="Unread certification"></span>' : ''}</div>
-        <div class="course-row-meta">${CURRENT_TERM} · Advisor: ${advisor?.full_name || '—'}</div>
+        <div class="course-row-meta">${term} · Advisor: ${advisor?.full_name || '—'}</div>
         <div class="course-row-inst">${enrollLine}</div>
         ${criteriaLine}
         ${deadline}
@@ -2731,7 +2744,7 @@ function studentContractRow(studentId) {
       <div class="course-row-side">
         <span class="banner-ok">Certified</span>
         <div class="course-row-desig">${contract.designation === 'inc' ? '<span class="desig-badge desig-inc">Incomplete</span>' : `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : 'desig-unsat'}">${desig}</span>`}</div>
-        <div><button class="btn btn-primary btn-sm" onclick="openStudentContract()">View certification</button></div>
+        <div><button class="btn btn-primary btn-sm" onclick="openStudentContract('${term}')">View certification</button></div>
       </div>
     </div>`;
 }
@@ -2757,8 +2770,10 @@ async function openStudentNarrative(courseId) {
   Data.logAccess('view_evaluation', 'evaluation', ev.id, u.student_id);
   markNarrativeRead(ev.id);
   ev.read_by_student = true;   // reflected in the faculty roster's Read column
-  const incRow = ev.designation === 'inc'
-    ? `<div style="margin-top:6px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev.last_attend_date)} <span style="color:#888;">(Banner)</span></div>` : '';
+  const incRow = (ev.designation === 'unsat' && ev.last_attend_date)
+    ? `<div style="margin-top:6px;font-size:13px;color:#b8860b;"><strong>Last Date of Attendance:</strong> ${fmtAttend(ev.last_attend_date)}</div>`
+    : (ev.designation === 'inc' && ev.completion_deadline)
+    ? `<div style="margin-top:6px;font-size:13px;color:#b8860b;"><strong>Incomplete Extension Deadline:</strong> ${fmtAttend(ev.completion_deadline)}</div>` : '';
   document.getElementById('evalPanelBody').innerHTML = `
     <div style="font-size:13px;color:#888;margin-bottom:6px;">${faculty?.full_name || ''} · ${course.semester} ${course.year}</div>
     <div style="margin-bottom:8px;"><strong>Designation:</strong> ${getDesignationPill(ev.designation)} &nbsp; <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${ev.submitted_at ? new Date(ev.submitted_at).toLocaleDateString() : '—'}</span></div>
@@ -2773,15 +2788,15 @@ async function openStudentNarrative(courseId) {
 }
 
 // Student opens the contract certification in the side panel (marks it read).
-function openStudentContract() {
+function openStudentContract(term = CURRENT_TERM) {
   const u = appState.currentUser;
-  const contract = getContract(u.student_id);
+  const contract = getContract(u.student_id, term);
   const advisor = demoData.profiles.find(p => p.id === demoData.students.find(s => s.id === u.student_id)?.advisor_id);
   if (!contract.certified) return;
-  markNarrativeRead('contract:' + u.student_id);
+  markNarrativeRead('contract:' + u.student_id + ':' + term);
   const desig = contractDesignationLabel(contract.designation);
   const hasNarr = contract.internal_narrative && stripHtml(contract.internal_narrative).length;
-  openSidePanel(`Contract Certification — ${CURRENT_TERM}`, `
+  openSidePanel(`Contract Certification — ${term}`, `
     <div style="display:flex;flex-wrap:wrap;gap:16px 28px;font-size:14px;margin-bottom:10px;">
       <div><span style="color:#888;font-size:12px;display:block;">Advisor</span>${advisor?.full_name || '—'}</div>
       <div><span style="color:#888;font-size:12px;display:block;">Enrollment Status</span>${contract.enrollment_status || 'Enrolled'}</div>
@@ -2794,7 +2809,7 @@ function openStudentContract() {
     ${hasNarr ? `
     <div class="rte-label private-label" style="margin-top:10px;">Narrative Evaluation for Advising</div>
     <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${contract.internal_narrative}</div></div>` : '<div style="color:#888;">No narrative was attached to this certification.</div>'}
-    <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="printContractCertification('${u.student_id}')">Print / PDF</button></div>`);
+    <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="printContractCertification('${u.student_id}','${term}')">Print / PDF</button></div>`);
   renderStudentList();
 }
 
@@ -2812,6 +2827,13 @@ async function printStudentNarrative(courseId) {
     [{ student, course, ev, faculty, privateNarr }],
     `${student?.full_name || 'Student'} — Narrative Evaluation`
   );
+}
+
+// Placeholder for SIG: would generate a single PDF containing every one of the
+// student's narrative evaluations and contract certifications, all terms, in one
+// document. Not wired up yet.
+function printAllEvaluations() {
+  showToast('Print All Evaluations — this will produce one PDF of every evaluation and contract certification (all terms). Not enabled in the mockup.', '#1a3a5c');
 }
 
 
@@ -2934,22 +2956,25 @@ function openBrowseRow(studentId, courseId, facultyId) {
 // ═══════════════════════════════════════════════════════════════════
 
 // Contract store (demo). In production a `contracts` table would back this.
-function getContract(studentId) {
+// Contracts are keyed by student AND term ("<studentId>|<term>") so a student
+// can have a certification for several semesters.
+function contractKey(studentId, term) { return `${studentId}|${term}`; }
+function getContract(studentId, term = CURRENT_TERM) {
   const stu = USE_DEMO ? demoData.students.find(s => s.id === studentId) : null;
   const base = {
-    student_id: studentId, term: CURRENT_TERM, designation: '', certified: false, certified_at: null,
+    student_id: studentId, term, designation: '', certified: false, certified_at: null,
     banner_pushed: false, banner_pushed_at: null,
     // Shown on the contract listing and on the certification document.
     enrollment_status: 'Enrolled',
     contract_criteria: stu?.contract_criteria || '',
     completion_deadline: null,   // only meaningful for an incomplete contract
   };
-  if (USE_DEMO) return Object.assign(base, demoData.contracts[studentId] || {});
+  if (USE_DEMO) return Object.assign(base, demoData.contracts[contractKey(studentId, term)] || {});
   return base;
 }
-function saveContract(studentId, patch) {
-  const next = Object.assign(getContract(studentId), patch, { student_id: studentId, term: CURRENT_TERM });
-  if (USE_DEMO) { demoData.contracts[studentId] = next; demoSaveData(demoData); }
+function saveContract(studentId, patch, term = CURRENT_TERM) {
+  const next = Object.assign(getContract(studentId, term), patch, { student_id: studentId, term });
+  if (USE_DEMO) { demoData.contracts[contractKey(studentId, term)] = next; demoSaveData(demoData); }
   return next;
 }
 // Stub for the Banner push (no real Banner in the demo).
@@ -3186,8 +3211,8 @@ async function openEvalPanel(studentId, courseId) {
         </select>
         <button class="btn btn-primary btn-sm" onclick="savePanelDesignation('${studentId}','${courseId}')">Save &amp; push to Banner</button>
       </div>
-      ${desig === 'inc' ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Last Day of Attendance:</strong> ${fmtAttend(ev?.last_attend_date)} <span style="color:#888;">(Banner)</span></div>
-      <div style="font-size:13px;color:#b8860b;"><strong>Completion Deadline:</strong> ${ev?.completion_deadline ? fmtAttend(ev.completion_deadline) : '—'}</div>` : ''}
+      ${desig === 'unsat' && ev?.last_attend_date ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Last Date of Attendance:</strong> ${fmtAttend(ev.last_attend_date)}</div>` : ''}
+      ${desig === 'inc' && ev?.completion_deadline ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Incomplete Extension Deadline:</strong> ${fmtAttend(ev.completion_deadline)}</div>` : ''}
       ${ev?.supp_designation ? `<div style="margin-top:6px;font-size:13px;"><strong>Supplementary Designation (GPA-proxy):</strong> ${ev.supp_designation}</div>` : ''}
       ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Narrative Evaluation for Advising</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div></div>` : ''}
@@ -3440,8 +3465,9 @@ function applyPacketFilter() {
   }
   const body = rows.map(({ e, c }) => {
     const fac = demoData.profiles.find(p => p.id === (e.faculty_id || c.faculty_id));
-    const inc = e.designation === 'inc'
-      ? `<div style="font-size:11px;color:#b8860b;">LDA: ${fmtAttend(e.last_attend_date)} · Deadline: ${e.completion_deadline ? fmtAttend(e.completion_deadline) : '—'}</div>` : '';
+    const inc = e.designation === 'inc' && e.completion_deadline
+      ? `<div style="font-size:11px;color:#b8860b;">Ext. Deadline: ${fmtAttend(e.completion_deadline)}</div>`
+      : (e.designation === 'unsat' && e.last_attend_date ? `<div style="font-size:11px;color:#b8860b;">Last Date of Attendance: ${fmtAttend(e.last_attend_date)}</div>` : '');
     return `<tr>
       <td style="text-align:center;"><input type="checkbox" class="pk-row-box" data-ev="${e.id}" checked></td>
       <td>${c.name}<div style="font-size:11px;color:#7a8494;">${courseMetaLine(c)}</div>${inc}</td>
