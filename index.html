@@ -268,6 +268,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .evalpanel-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 900; }
 .evalpanel-backdrop.open { opacity: 1; pointer-events: auto; }
 .evalpanel { position: fixed; top: 0; right: 0; height: 100vh; width: 560px; max-width: 92vw; background: #fff; box-shadow: -8px 0 28px rgba(0,0,0,0.18); transform: translateX(100%); transition: transform .25s ease; z-index: 901; display: flex; flex-direction: column; }
+.evalpanel.wide { width: 760px; }
 .evalpanel.open { transform: translateX(0); }
 .evalpanel-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #eee; }
 .evalpanel-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
@@ -1561,7 +1562,7 @@ function setSaveStatus(state, msg) {
 }
 
 function markDirty() {
-  if (appState.view !== 'evaluation') return;
+  if (appState.view !== 'evaluation' && !appState.evalInPanel) return;
   if (appState.currentEvalStatus === 'submitted' && !appState.isAmending && !appState.canEditSubmitted) return;
   _isDirty = true;
   setSaveStatus('unsaved', '● Unsaved changes');
@@ -1570,7 +1571,7 @@ function markDirty() {
 }
 
 async function autoSave() {
-  if (!_isDirty || appState.view !== 'evaluation') return;
+  if (!_isDirty || (appState.view !== 'evaluation' && !appState.evalInPanel)) return;
   setSaveStatus('saving', 'Saving…');
   try {
     // While correcting an already-submitted eval, autosave keeps it submitted
@@ -1625,7 +1626,10 @@ async function renderSidebar() {
     try {
       const allCourses = await Data.getMyCourses(u.id);
       // Left nav = the terms this instructor has taught (most recent first).
-      const terms = [...new Set(allCourses.map(c => `${c.semester} ${c.year}`))].sort(semesterSortDesc);
+      // January (ISP) is not a stand-alone term — ISPs belong to the Fall semester.
+      const terms = [...new Set(allCourses.map(c => `${c.semester} ${c.year}`))]
+        .filter(t => t.split(' ')[0] !== 'January')
+        .sort(semesterSortDesc);
       if (!appState.facultyTerm || !terms.includes(appState.facultyTerm)) {
         appState.facultyTerm = terms.includes(CURRENT_TERM) ? CURRENT_TERM : (terms[0] || CURRENT_TERM);
       }
@@ -1634,10 +1638,9 @@ async function renderSidebar() {
         html += '<div style="padding:20px;color:#888;font-size:13px;">No courses on record.</div>';
       } else {
         // A dropdown scales to instructors who have taught for decades.
-        const opts = terms.map(t => {
-          const n = allCourses.filter(c => `${c.semester} ${c.year}` === t).length;
-          return `<option value="${t}"${t === appState.facultyTerm ? ' selected' : ''}>${t} — ${n} class${n !== 1 ? 'es' : ''}</option>`;
-        }).join('');
+        const opts = terms.map(t =>
+          `<option value="${t}"${t === appState.facultyTerm ? ' selected' : ''}>${t}</option>`
+        ).join('');
         html += `<div style="padding:0 14px 6px;">
           <select class="filter-select" style="width:100%;" onchange="navToFacultyTerm(this.value)">${opts}</select>
         </div>`;
@@ -1783,8 +1786,29 @@ function openEvaluation(studentId, courseId) {
   appState.selectedStudentId = studentId;
   appState.selectedCourseId = courseId;
   appState.isAmending = false;
+  appState.evalInPanel = false;
   appState.view = 'evaluation';
   renderMain();
+}
+
+// Open the evaluation as a slide-over panel (used from the class roster), similar
+// to how students read their narratives.
+function openEvaluationSlide(studentId, courseId) {
+  if (!warnIfDirty()) return;
+  destroyEditors();
+  appState.selectedStudentId = studentId;
+  appState.selectedCourseId = courseId;
+  appState.isAmending = false;
+  appState.evalInPanel = true;
+  document.getElementById('evalPanelTitle').textContent = 'Narrative Evaluation';
+  document.getElementById('evalPanelBackdrop').classList.add('open');
+  document.getElementById('evalPanel').classList.add('open', 'wide');
+  renderEvaluationForm(document.getElementById('evalPanelBody'));
+}
+
+// Where the evaluation form renders / re-renders (slide-over panel or main content).
+function evalTargetEl() {
+  return appState.evalInPanel ? document.getElementById('evalPanelBody') : document.getElementById('mainContent');
 }
 
 
@@ -1923,7 +1947,7 @@ async function renderCourseView(mc) {
       if (early) anyEarly = true;
       const earlyChip = early
         ? ` <span class="early-chip" title="Graded early — ${s.year_level === 'Fourth Year' ? 'expected to graduate' : 'academic probation'}">&#9201; Early</span>` : '';
-      rows += `<tr class="clickable-row${early ? ' early-row' : ''}" onclick="openEvaluation('${s.id}','${appState.selectedCourseId}')">
+      rows += `<tr class="clickable-row${early ? ' early-row' : ''}" onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
         <td><strong>${s.full_name}</strong>${earlyChip}</td>
         <td>${preferred}</td>
         <td>${s.n_number}</td>
@@ -1941,7 +1965,7 @@ async function renderCourseView(mc) {
 
     mc.innerHTML = `
       <div style="margin-bottom:12px;">
-        <button class="btn btn-outline btn-sm" onclick="navToFacultyTerm('${term}')">← Back to ${term} classes</button>
+        <button class="btn btn-outline btn-sm" onclick="navToFacultyTerm('${term}')">← Back to ${term}</button>
       </div>
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
@@ -2065,9 +2089,9 @@ async function renderEvaluationForm(mc) {
       <div class="lock-notice">This evaluation is shown in read-only mode.</div>` : '';
 
     mc.innerHTML = `
-      <div style="margin-bottom:12px;">
+      ${appState.evalInPanel ? '' : `<div style="margin-bottom:12px;">
         <button class="btn btn-outline btn-sm" onclick="navToCourse('${course.id}')">← Back to ${course.code}</button>
-      </div>
+      </div>`}
       ${amendBanner}
       <div class="card">
         <div class="card-header">
@@ -2140,13 +2164,8 @@ async function renderEvaluationForm(mc) {
           <div class="btn-group">
             ${locked
               ? `<button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
-              : canEditSubmitted
-                ? `<button class="btn btn-success" onclick="saveSubmittedCorrection()">Save</button>
-                   <button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
-                : `<button class="btn btn-secondary" onclick="performSave('draft', true)">Save Draft</button>
-                   <button class="btn btn-primary" onclick="submitDesignationOnly()">Submit Designation only</button>
-                   <button class="btn btn-success" onclick="submitNarrativeOnly()">Submit Narrative only</button>
-                   <button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
+              : `<button class="btn btn-success" onclick="saveEvaluationForm()">Save</button>
+                 <button class="btn btn-outline" onclick="printEvaluation()">Print / PDF</button>`
             }
           </div>
         </div>
@@ -2232,8 +2251,7 @@ async function performSave(status, showMsg, opts = {}) {
   clearTimeout(_autoSaveTimer);
 
   if (showMsg) {
-    const msg = status === 'submitted' ? 'Evaluation submitted.' : 'Draft saved.';
-    showToast(msg, status === 'submitted' ? '#28a745' : '#6c757d');
+    showToast('Saved.', '#28a745');
     const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setSaveStatus('saved', `✓ Saved ${t}`);
   }
@@ -2241,8 +2259,8 @@ async function performSave(status, showMsg, opts = {}) {
   if (status === 'submitted') {
     appState.isAmending = false;
     renderSidebar();
-    // Re-render form in locked state
-    setTimeout(() => renderEvaluationForm(document.getElementById('mainContent')), 300);
+    // Re-render the form (in the panel or main content) in its saved state.
+    setTimeout(() => renderEvaluationForm(evalTargetEl()), 300);
   } else {
     renderSidebar();
   }
@@ -2281,6 +2299,14 @@ async function saveSubmittedCorrection() {
   if (!publicNarr.replace(/<[^>]*>|&nbsp;|\s/g, '').length) { showToast('The narrative cannot be emptied.', '#dc3545'); return; }
   await performSave('submitted', true, { requireDesignation: false });
   Data.logAccess('amend_evaluation', 'evaluation', appState.currentEvalId, appState.selectedStudentId);
+}
+
+// The single "Save" button on the evaluation form — persists the evaluation as the
+// record (drafts already auto-save; no confirmation pop-up).
+async function saveEvaluationForm() {
+  if (!_publicQuill) return;
+  await performSave('submitted', true, { requireDesignation: false });
+  Data.logAccess('save_evaluation', 'evaluation', appState.currentEvalId, appState.selectedStudentId);
 }
 
 // Open the official evaluation document for print / save-as-PDF.
@@ -3231,8 +3257,16 @@ async function openEvalPanel(studentId, courseId) {
   }
 }
 function closeEvalPanel() {
-  document.getElementById('evalPanel')?.classList.remove('open');
+  document.getElementById('evalPanel')?.classList.remove('open', 'wide');
   document.getElementById('evalPanelBackdrop')?.classList.remove('open');
+  // If the panel held an editable evaluation, tear down its editors and refresh
+  // the roster behind it so status / read markers update.
+  if (appState.evalInPanel) {
+    appState.evalInPanel = false;
+    _publicQuill = null; _privateQuill = null;
+    clearTimeout(_autoSaveTimer); _isDirty = false; setSaveStatus('', '');
+    if (appState.view === 'course') renderMain();
+  }
 }
 async function savePanelDesignation(studentId, courseId) {
   const desig = document.getElementById('panelDesig')?.value || '';
