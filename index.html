@@ -203,6 +203,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .roster-table tbody tr.clickable-row:hover { background: #f2f6ff; }
 .roster-table tbody tr.early-row > td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .early-chip { display: inline-block; background: #fff4d6; color: #8a6100; border: 1px solid #f0d98a; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.grad-cap { font-size: 15px; vertical-align: middle; }
 .contract-row { background: linear-gradient(0deg,#fbfcff,#fbfcff); border-color: #dbe4f5; margin-bottom: 20px; }
 /* Collapsible sections (Course Description / Learning Objectives) */
 .collapse-sec { border: 1px solid #e7ebf2; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
@@ -1559,8 +1560,16 @@ function fmtAttend(d) {
 }
 
 // Show the Last Day of Attendance field only when the designation is Incomplete.
+// The standard catalog deadline for resolving an Incomplete: by the middle of the
+// following term. In production this would be read from the NCF academic calendar.
+function catalogIncDeadline(term) {
+  const parts = (term || CURRENT_TERM).split(' '); const y = +parts[1];
+  return parts[0] === 'Fall' ? `${y + 1}-02-15` : `${y}-09-15`;
+}
+
 // Enable Last Date of Attendance only for Unsatisfactory, and Incomplete
-// Extension Deadline only for Incomplete; otherwise gray them out.
+// Extension Deadline only for Incomplete; otherwise gray them out. When Incomplete
+// is chosen, pre-fill the deadline with the catalog default.
 function toggleDesigFields() {
   const sel = document.getElementById('designationSelect');
   if (!sel) return;
@@ -1569,7 +1578,14 @@ function toggleDesigFields() {
   const deadline = document.getElementById('deadlineDate'), deadlineWrap = document.getElementById('deadlineFieldWrap');
   if (attend) { attend.disabled = v !== 'unsat'; if (v !== 'unsat') attend.value = ''; }
   if (attendWrap) attendWrap.classList.toggle('field-disabled', v !== 'unsat');
-  if (deadline) { deadline.disabled = v !== 'inc'; if (v !== 'inc') deadline.value = ''; }
+  if (deadline) {
+    deadline.disabled = v !== 'inc';
+    if (v !== 'inc') deadline.value = '';
+    else if (!deadline.value) {
+      const c = USE_DEMO ? demoData.courses.find(cc => cc.id === appState.selectedCourseId) : null;
+      deadline.value = catalogIncDeadline(c ? `${c.semester} ${c.year}` : CURRENT_TERM);
+    }
+  }
   if (deadlineWrap) deadlineWrap.classList.toggle('field-disabled', v !== 'inc');
   markDirty();
 }
@@ -1643,9 +1659,9 @@ async function renderSidebar() {
   }
 
   if (u.role === 'faculty' || u.role === 'admin') {
+    html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Faculty</div>';
     try {
       const allCourses = await Data.getMyCourses(u.id);
-      // Left nav = the terms this instructor has taught (most recent first).
       // January (ISP) is not a stand-alone term — ISPs belong to the Fall semester.
       const terms = [...new Set(allCourses.map(c => `${c.semester} ${c.year}`))]
         .filter(t => t.split(' ')[0] !== 'January')
@@ -1653,37 +1669,38 @@ async function renderSidebar() {
       if (!appState.facultyTerm || !terms.includes(appState.facultyTerm)) {
         appState.facultyTerm = terms.includes(CURRENT_TERM) ? CURRENT_TERM : (terms[0] || CURRENT_TERM);
       }
-      html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Term</div>';
-      if (terms.length === 0) {
-        html += '<div style="padding:20px;color:#888;font-size:13px;">No courses on record.</div>';
-      } else {
-        // A dropdown scales to instructors who have taught for decades.
-        const opts = terms.map(t =>
-          `<option value="${t}"${t === appState.facultyTerm ? ' selected' : ''}>${t}</option>`
-        ).join('');
-        html += `<div style="padding:0 14px 6px;">
+      // 1) Narrative Evaluations — the class list, with a term dropdown under it.
+      const neActive = (appState.view === 'faculty-classes' || appState.view === 'course' || appState.view === 'contract-roster') ? ' active' : '';
+      html += `<div class="sidebar-item${neActive}" onclick="navToFacultyTerm(appState.facultyTerm)">
+        <div class="si-title">Narrative Evaluations</div>
+        <div class="si-subtitle">${appState.facultyTerm} class list</div>
+      </div>`;
+      if (terms.length > 1) {
+        const opts = terms.map(t => `<option value="${t}"${t === appState.facultyTerm ? ' selected' : ''}>${t}</option>`).join('');
+        html += `<div style="padding:4px 14px 8px;">
           <select class="filter-select" style="width:100%;" onchange="navToFacultyTerm(this.value)">${opts}</select>
-        </div>`;
-        // A persistent link back to the class list (the dropdown alone won't
-        // return here when the same term is re-selected).
-        const classesActive = (appState.view === 'faculty-classes' || appState.view === 'course') ? ' active' : '';
-        html += `<div class="sidebar-item${classesActive}" onclick="navToFacultyTerm(appState.facultyTerm)">
-          <div class="si-title">&#128218; Class List</div>
-          <div class="si-subtitle">${appState.facultyTerm}</div>
         </div>`;
       }
     } catch(e) {
-      html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Terms</div>';
       html += '<div style="padding:12px;color:#c00;font-size:12px;">Error loading courses.</div>';
     }
+    // 2) My Advisees (for faculty who advise).
+    if (u.is_advisor) {
+      const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student' || appState.view === 'contract') ? ' active' : '';
+      html += `<div class="sidebar-item${adviseesActive}" onclick="navToAdvisees()">
+        <div class="si-title">My Advisees</div>
+        <div class="si-subtitle">Advising &amp; contracts</div>
+      </div>`;
+    }
+    // 3) Browse Evaluations.
     const browseActive = appState.view === 'browse' ? ' active' : '';
-    html += `<div class="sidebar-item${browseActive}" style="margin-top:4px;" onclick="navToBrowse()">
-      <div class="si-title">&#128269; Browse Evaluations</div>
+    html += `<div class="sidebar-item${browseActive}" onclick="navToBrowse()">
+      <div class="si-title">Browse Evaluations</div>
       <div class="si-subtitle">Search by semester, AOC, professor</div>
     </div>`;
   }
 
-  if (u.is_advisor || u.role === 'admin') {
+  if (u.is_advisor && u.role !== 'faculty') {
     html += '<div class="sidebar-header" style="margin-top:8px;"><img src="assets/logo4winds.png" alt="">Advising</div>';
     let count = '';
     try { count = `${(await Data.getMyAdvisees(u.id)).length} advisees`; } catch(e) { count = ''; }
@@ -1995,22 +2012,20 @@ async function renderCourseView(mc) {
       const advisor = s.advisor ? s.advisor.full_name : (USE_DEMO ? (demoData.profiles.find(p => p.id === s.advisor_id)?.full_name || '—') : '—');
       const preferred = s.preferred_name && s.preferred_name !== s.full_name.split(' ')[0]
         ? s.preferred_name : (s.preferred_name || '—');
-      // Students whose evaluations are due early: graduating seniors or on probation.
-      const early = s.year_level === 'Fourth Year' || standing === 'Academic Probation';
-      if (early) anyEarly = true;
-      const earlyChip = early
-        ? ` <span class="early-chip" title="Graded early — ${s.year_level === 'Fourth Year' ? 'expected to graduate' : 'academic probation'}">&#9201; Early</span>` : '';
-      rows += `<tr class="clickable-row${early ? ' early-row' : ''}" onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
-        <td><strong>${s.full_name}</strong>${earlyChip}</td>
+      // A graduation cap flags students scheduled to graduate that year (seniors).
+      const grad = s.year_level === 'Fourth Year';
+      if (grad) anyEarly = true;
+      const gradCap = grad
+        ? ` <span class="grad-cap" title="Scheduled to graduate — evaluation due earlier">&#127891;</span>` : '';
+      rows += `<tr class="clickable-row${grad ? ' early-row' : ''}" onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
+        <td><strong>${s.full_name}</strong>${gradCap}</td>
         <td>${preferred}</td>
         <td>${s.n_number}</td>
-        <td>Enrolled</td>
         <td>Registered</td>
         <td>${credits}</td>
         <td>${advisor}</td>
         <td>${standingCell}</td>
         <td style="text-align:center;">${check(official)}</td>
-        <td>${readIndicator(ev)}</td>
         <td>${desig}</td>
         <td>${status}</td>
       </tr>`;
@@ -2042,17 +2057,14 @@ async function renderCourseView(mc) {
       <div class="card">
         <div class="card-header">Class Roster <span style="font-weight:400;font-size:13px;color:#888;">${students.length} student${students.length !== 1 ? 's' : ''}</span></div>
         <div class="card-body">
-          <div style="font-size:12px;color:#7a8494;margin-bottom:8px;">
-            <strong>Read</strong>: <span class="read-yes">&#128065; Read</span> · <span class="read-no">&#9679; Unread</span> shows whether the student has opened their evaluation.
-            ${anyEarly ? '&nbsp;·&nbsp; <span class="early-chip">&#9201; Early</span> = evaluation due earlier (graduating senior or academic probation).' : ''}
-          </div>
+          ${anyEarly ? '<div style="font-size:12px;color:#7a8494;margin-bottom:8px;"><span class="grad-cap">&#127891;</span> = scheduled to graduate this year — evaluation due earlier.</div>' : ''}
           <div style="overflow-x:auto;">
           <table class="student-table roster-table">
             <thead><tr>
-              <th>Student</th><th>Preferred</th><th>ID</th><th>Enroll.</th><th>Reg.</th><th>Credits</th>
-              <th>Advisor</th><th>Academic Standing</th><th>Official</th><th>Read</th><th>Designation</th><th>Status</th>
+              <th>Student</th><th>Preferred</th><th>ID</th><th>Reg.</th><th>Credits</th>
+              <th>Advisor</th><th>Academic Standing</th><th>Official</th><th>Designation</th><th>Status</th>
             </tr></thead>
-            <tbody>${rows || '<tr><td colspan="12" style="text-align:center;color:#888;padding:20px;">No students enrolled.</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="10" style="text-align:center;color:#888;padding:20px;">No students enrolled.</td></tr>'}</tbody>
           </table>
           </div>
         </div>
@@ -2074,10 +2086,9 @@ function renderContractRoster(mc) {
   const rows = advisees.map(s => {
     const contract = getContract(s.id, term);
     const standing = studentStanding(s.id);
-    const early = s.year_level === 'Fourth Year' || standing === 'Academic Probation';
-    if (early) anyEarly = true;
-    const earlyChip = early
-      ? ` <span class="early-chip" title="Graded early — ${s.year_level === 'Fourth Year' ? 'expected to graduate' : 'academic probation'}">&#9201; Early</span>` : '';
+    const grad = s.year_level === 'Fourth Year';
+    if (grad) anyEarly = true;
+    const gradCap = grad ? ` <span class="grad-cap" title="Scheduled to graduate — certification due earlier">&#127891;</span>` : '';
     const preferred = (s.preferred_name && s.preferred_name !== s.full_name.split(' ')[0]) ? s.preferred_name : (s.preferred_name || '—');
     // Advisor of record — should match the instructor, but may differ (data entry).
     const advisorName = s.contract_advisor_name || u.full_name;
@@ -2087,26 +2098,26 @@ function renderContractRoster(mc) {
     const allEvals = allEvalsSubmitted(s.id)
       ? '<span class="read-yes" title="All narrative evaluations rolled to academic history">Y</span>' : '<span style="color:#ccc;">—</span>';
     const official = check(contract.certified || contract.banner_pushed);
-    const read = contract.certified
-      ? (contract.read_by_student ? '<span class="read-yes" title="Student opened the certification">&#128065; Read</span>' : '<span class="read-no" title="Not opened yet">&#9679; Unread</span>')
-      : '<span style="color:#ccc;">—</span>';
     const desig = contract.designation
       ? `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : contract.designation === 'unsat' ? 'desig-unsat' : 'desig-inc'}">${contractDesignationLabel(contract.designation)}</span>`
       : '<span style="color:#bbb;">—</span>';
     const status = contract.certified
       ? '<span class="status-badge status-submitted">Submitted</span>'
       : '<span class="status-badge status-not-started">Not Started</span>';
-    return `<tr class="clickable-row${early ? ' early-row' : ''}" onclick="navToContract('${s.id}',{term:'${term}',from:'contract-roster'})">
-      <td><strong>${s.full_name}</strong>${earlyChip}</td>
+    const credits = demoData.evaluations.filter(e => e.student_id === s.id && e.status === 'submitted').length * 3;
+    return `<tr class="clickable-row${grad ? ' early-row' : ''}" onclick="navToContract('${s.id}',{term:'${term}',from:'contract-roster'})">
+      <td><strong>${s.full_name}</strong>${gradCap}</td>
       <td>${preferred}</td>
       <td>${s.n_number}</td>
       <td>Enrolled</td>
       <td>${advisorCell}</td>
       <td>${standing === 'Academic Probation' ? '<span style="color:#c0392b;font-weight:600;">Academic Probation</span>' : 'Good Standing'}</td>
+      <td>${gradDateFor(s.year_level)}</td>
+      <td style="text-align:center;">${credits}</td>
+      <td style="text-align:center;">${s.contracts_completed ?? '—'}</td>
       <td>${criteria}</td>
       <td style="text-align:center;">${allEvals}</td>
       <td style="text-align:center;">${official}</td>
-      <td>${read}</td>
       <td>${desig}</td>
       <td>${status}</td>
     </tr>`;
@@ -2128,15 +2139,15 @@ function renderContractRoster(mc) {
       <div class="card-body">
         <div style="font-size:12px;color:#7a8494;margin-bottom:8px;">
           <strong>All Evals Submitted</strong> = <span class="read-yes">Y</span> when every course narrative is rolled to academic history.
-          ${anyEarly ? '&nbsp;·&nbsp; <span class="early-chip">&#9201; Early</span> = certification due earlier (graduating senior / academic probation).' : ''}
+          ${anyEarly ? '&nbsp;·&nbsp; <span class="grad-cap">&#127891;</span> = scheduled to graduate this year (certification due earlier).' : ''}
         </div>
         <div style="overflow-x:auto;">
         <table class="student-table roster-table">
           <thead><tr>
             <th>Student</th><th>Preferred</th><th>ID</th><th>Enroll.</th><th>Advisor</th><th>Academic Standing</th>
-            <th>Criteria</th><th>All Evals Submitted</th><th>Official</th><th>Read</th><th>Designation</th><th>Status</th>
+            <th>Expected Grad</th><th>Credits</th><th>Contracts</th><th>Criteria</th><th>All Evals Submitted</th><th>Official</th><th>Designation</th><th>Status</th>
           </tr></thead>
-          <tbody>${rows || '<tr><td colspan="12" style="text-align:center;color:#888;padding:20px;">No advisees.</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="14" style="text-align:center;color:#888;padding:20px;">No advisees.</td></tr>'}</tbody>
         </table>
         </div>
       </div>
@@ -2239,9 +2250,9 @@ async function renderEvaluationForm(mc) {
           ${viewerNotice}
 
           <div class="eval-info">
-            <div style="font-size:15px;"><strong>${student.full_name}</strong> <span style="color:#888;">(${student.n_number})</span></div>
+            <div style="font-size:15px;"><strong>${student.full_name}</strong> <span style="color:#888;">(${student.n_number})</span> <span style="color:#7a8494;">· Expected Graduation: ${gradDateFor(student.year_level)}</span></div>
             <div style="font-weight:650;font-size:15.5px;margin-top:8px;color:#1e2a4a;">${course.name}</div>
-            <div style="font-size:12.5px;color:#7a8494;margin-top:2px;">${courseMetaLine(course)} · Registration: ${course.reg_status || '—'}</div>
+            <div style="font-size:12.5px;color:#7a8494;margin-top:2px;">${courseMetaLine(course)} · Registration: ${course.reg_status === 'Withdrawn' ? '<span style="color:#b93a2b;font-weight:600;">Withdrawn ⚠ (from Banner)</span>' : (course.reg_status || '—')}</div>
             <div style="font-size:13px;color:#445;margin-top:2px;">Instructor: ${instructorsOf(course, facultyName)}</div>
           </div>
 
@@ -2284,16 +2295,16 @@ async function renderEvaluationForm(mc) {
           <div class="course-desc-box"><strong>Course Description</strong>${course.description || ' —'}</div>
           <div class="course-desc-box"><strong>Learning Objectives</strong>${course.learning_objectives || ' —'}</div>
 
-          ${canSeePrivate ? `
-          <div class="rte-label private-label">Narrative Evaluation for Advising</div>
-          <div class="rte-wrapper${locked ? ' readonly' : ''}" id="privateEditorWrapper">
-            <div id="privateEditorContainer"></div>
-          </div>` : ''}
-
           <div class="rte-label">Narrative Evaluation for Transcript</div>
           <div class="rte-wrapper${locked ? ' readonly' : ''}" id="publicEditorWrapper">
             <div id="publicEditorContainer"></div>
           </div>
+
+          ${canSeePrivate ? `
+          <div class="rte-label private-label" style="margin-top:14px;">Narrative Evaluation for Advising</div>
+          <div class="rte-wrapper${locked ? ' readonly' : ''}" id="privateEditorWrapper">
+            <div id="privateEditorContainer"></div>
+          </div>` : ''}
 
           <div class="btn-group">
             ${locked
@@ -2541,11 +2552,11 @@ function evalDocumentPageHtml(entry) {
       </div>`;
       })()}
 
-      ${internalBlock(entry)}
-
       <div class="doc-h2">Narrative Evaluation for Transcript</div>
       <div class="doc-stmt">${EXTERNAL_STATEMENT}</div>
       <div class="doc-body">${narr}</div>
+
+      ${internalBlock(entry)}
 
       <div class="doc-footnote">${FOOTER_STATEMENT}</div>
       <div class="doc-printed">${printedTimestamp()}</div>
@@ -2691,12 +2702,15 @@ async function renderAdvisorStudentView(mc) {
       </div>`).join('');
 
     mc.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <button class="btn btn-outline btn-sm" onclick="navToAdvisees()">← Back to My Advisees</button>
+      </div>
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
             <div>
               <h3 style="margin-bottom:4px;">${student.full_name}</h3>
-              <div style="color:#666;font-size:14px;">${student.n_number} · ${student.year_level} · ${student.contracts_completed ?? '—'} contracts · ${student.aoc || '—'}</div>
+              <div style="color:#666;font-size:14px;">${student.n_number} · ${student.year_level} · Expected Graduation: ${gradDateFor(student.year_level)} · ${student.contracts_completed ?? '—'} contracts · ${student.aoc || '—'}</div>
               <div style="color:#888;font-size:13px;margin-top:2px;">Advisor: ${advisorName}</div>
             </div>
             <button class="btn btn-primary btn-sm" onclick="navToContract('${student.id}')">Current Contract / Certify ›</button>
@@ -2808,7 +2822,7 @@ async function renderStudentView(mc) {
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
           <h3 style="margin-bottom:4px;">My Narrative Evaluations</h3>
-          <div style="color:#666;font-size:14px;">${u.full_name} · ${u.n_number || ''}</div>
+          <div style="color:#666;font-size:14px;">${u.full_name} · ${u.n_number || ''}${(() => { const st = demoData.students.find(s => s.id === u.student_id); return st ? ` · Expected Graduation: ${gradDateFor(st.year_level)}` : ''; })()}</div>
         </div>
       </div>
       <div id="studentGroups"></div>`;
@@ -2832,16 +2846,24 @@ function renderStudentList() {
     (groups[key] = groups[key] || []).push(r);
   }
 
+  // Each term is an accordion section — the current term open, past terms collapsed.
   let html = '';
-  for (const key of Object.keys(groups).sort(semesterSortDesc)) {
-    html += `<div class="term-divider">${key}</div>`;
-    // Contract certification belongs with its term (any term that has one).
-    html += studentContractRow(u.student_id, key);
-    // Classes are indented under the term / contract header.
-    html += '<div class="course-list class-indent">';
-    for (const { course, ev } of groups[key]) html += studentCourseRow(course, ev);
-    html += '</div>';
-  }
+  Object.keys(groups).sort(semesterSortDesc).forEach((key, idx) => {
+    const open = idx === 0;   // most-recent term expanded by default
+    const bid = 'term-' + key.replace(/\s+/g, '');
+    let body = studentContractRow(u.student_id, key);
+    body += '<div class="course-list class-indent">';
+    for (const { course, ev } of groups[key]) body += studentCourseRow(course, ev);
+    body += '</div>';
+    html += `
+      <div class="collapse-sec">
+        <div class="collapse-head${open ? ' open' : ''}" id="${bid}-h" onclick="toggleSection('${bid}')">
+          <span>${key} <span style="font-weight:400;color:#7a8494;font-size:13px;">· ${groups[key].length} course${groups[key].length !== 1 ? 's' : ''}</span></span>
+          <span class="collapse-caret">&#9656;</span>
+        </div>
+        <div class="collapse-body" id="${bid}" style="${open ? '' : 'display:none;'}padding:12px;">${body}</div>
+      </div>`;
+  });
   container.innerHTML = html;
 }
 
@@ -2945,11 +2967,11 @@ async function openStudentNarrative(courseId) {
     <div style="font-size:13px;color:#888;margin-bottom:6px;">${faculty?.full_name || ''} · ${course.semester} ${course.year}</div>
     <div style="margin-bottom:8px;"><strong>Designation:</strong> ${getDesignationPill(ev.designation)} &nbsp; <strong>Submitted:</strong> <span style="color:#555;font-size:13px;">${ev.submitted_at ? new Date(ev.submitted_at).toLocaleDateString() : '—'}</span></div>
     ${incRow}
-    ${privateNarr ? `
-    <div class="rte-label private-label" style="margin-top:12px;">Narrative Evaluation for Advising</div>
-    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${privateNarr}</div></div>` : ''}
-    <div class="rte-label" style="margin-top:14px;">Narrative Evaluation for Transcript</div>
+    <div class="rte-label" style="margin-top:12px;">Narrative Evaluation for Transcript</div>
     <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${ev.public_narrative || '<span style="color:#888;">Not available.</span>'}</div></div>
+    ${privateNarr ? `
+    <div class="rte-label private-label" style="margin-top:14px;">Narrative Evaluation for Advising</div>
+    <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.7;">${privateNarr}</div></div>` : ''}
     <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="printStudentNarrative('${courseId}')">Print / PDF</button></div>`;
   renderStudentList();   // refresh the unread markers behind the panel
 }
@@ -3020,22 +3042,23 @@ async function renderBrowseEvaluations(mc) {
     const semesters = [...new Set(rows.map(r => r.course ? `${r.course.semester} ${r.course.year}` : null).filter(Boolean))].sort(semesterSortDesc);
     const aocs  = [...new Set(rows.map(r => r.student?.aoc).filter(Boolean))].sort();
     const profs = [...new Set(rows.map(r => r.faculty?.full_name).filter(Boolean))].sort();
-    const opt = (arr, label) => `<option value="">${label}</option>` + arr.map(v => `<option value="${v}">${v}</option>`).join('');
+    // Type-ahead lists: you can type to filter or pick from the dropdown.
+    const dl = (id, arr) => `<datalist id="${id}">${arr.map(v => `<option value="${v}">`).join('')}</datalist>`;
 
     mc.innerHTML = `
       <div class="card">
         <div class="card-header">
           Browse Evaluations
-          <span style="font-size:13px;font-weight:400;color:#888;">Your courses and advisees</span>
+          <span style="font-size:13px;font-weight:400;color:#888;">Your courses and advisees · type or pick in any filter</span>
         </div>
         <div class="card-body">
           <div class="filter-bar">
             <div class="filter-group"><label>Semester</label>
-              <select class="filter-select" id="bSem" onchange="applyBrowseFilters()">${opt(semesters,'All semesters')}</select></div>
+              <input class="filter-select" id="bSem" list="dlSem" placeholder="All semesters" oninput="applyBrowseFilters()">${dl('dlSem', semesters)}</div>
             <div class="filter-group"><label>AOC</label>
-              <select class="filter-select" id="bAoc" onchange="applyBrowseFilters()">${opt(aocs,'All AOCs')}</select></div>
+              <input class="filter-select" id="bAoc" list="dlAoc" placeholder="All AOCs" oninput="applyBrowseFilters()">${dl('dlAoc', aocs)}</div>
             <div class="filter-group"><label>Professor</label>
-              <select class="filter-select" id="bProf" onchange="applyBrowseFilters()">${opt(profs,'All professors')}</select></div>
+              <input class="filter-select" id="bProf" list="dlProf" placeholder="All professors" oninput="applyBrowseFilters()">${dl('dlProf', profs)}</div>
             <div class="filter-group"><label>Search</label>
               <input type="text" class="filter-select" id="bSearch" placeholder="Name or N-Number…" oninput="applyBrowseFilters()" style="width:200px;"></div>
           </div>
@@ -3057,10 +3080,11 @@ function applyBrowseFilters() {
   const container = document.getElementById('browseTable');
   if (!container) return;
 
+  const inc = (hay, needle) => (hay || '').toLowerCase().includes(needle.toLowerCase());
   const filtered = rows.filter(r => {
-    if (sem  && (!r.course  || `${r.course.semester} ${r.course.year}` !== sem)) return false;
-    if (aoc  && r.student?.aoc !== aoc) return false;
-    if (prof && r.faculty?.full_name !== prof) return false;
+    if (sem  && (!r.course  || !inc(`${r.course.semester} ${r.course.year}`, sem))) return false;
+    if (aoc  && !inc(r.student?.aoc, aoc)) return false;
+    if (prof && !inc(instructorsOf(r.course, r.faculty?.full_name), prof)) return false;
     if (q) {
       const hay = `${r.student?.full_name || ''} ${r.student?.n_number || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
@@ -3210,7 +3234,12 @@ function renderContractView(mc) {
   const term = appState.contractTerm || CURRENT_TERM;
   const contract = getContract(student.id, term);
   const advisor = USE_DEMO ? demoData.profiles.find(p => p.id === student.advisor_id) : null;
-  const courses = (student.enrollments || []).map(cid => _courseById[cid]).filter(c => c && `${c.semester} ${c.year}` === term);
+  // A Fall contract also includes that year's January ISPs (ISPs belong to Fall).
+  const [tSem, tYr] = term.split(' ');
+  const courses = (student.enrollments || []).map(cid => _courseById[cid]).filter(c => c && (
+    `${c.semester} ${c.year}` === term ||
+    (tSem === 'Fall' && c.is_isp && c.semester === 'January' && c.year === (+tYr + 1))
+  ));
 
   const courseRows = courses.map(c => {
     const ev = USE_DEMO ? demoData.evaluations.find(e => e.student_id === student.id && e.course_id === c.id) : null;
@@ -3318,6 +3347,7 @@ function toggleContractDeadline() {
   if (!sel || !inp || !lbl) return;
   const show = sel.value === 'inc';
   inp.hidden = !show; lbl.hidden = !show;
+  if (show && !inp.value) inp.value = catalogIncDeadline(appState.contractTerm || CURRENT_TERM);   // catalog default
 }
 
 function saveContractNarrative(studentId) {
@@ -3386,10 +3416,10 @@ async function openEvalPanel(studentId, courseId) {
       ${desig === 'unsat' && ev?.last_attend_date ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Last Date of Attendance:</strong> ${fmtAttend(ev.last_attend_date)}</div>` : ''}
       ${desig === 'inc' && ev?.completion_deadline ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Incomplete Extension Deadline:</strong> ${fmtAttend(ev.completion_deadline)}</div>` : ''}
       ${ev?.supp_designation ? `<div style="margin-top:6px;font-size:13px;"><strong>Supplementary Designation (GPA-proxy):</strong> ${ev.supp_designation}</div>` : ''}
-      ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Narrative Evaluation for Advising</div>
-      <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div></div>` : ''}
       <div class="rte-label" style="margin-top:16px;">Narrative Evaluation for Transcript</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev?.public_narrative || '<span style="color:#888;">Not written yet.</span>'}</div></div>
+      ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Narrative Evaluation for Advising</div>
+      <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div></div>` : ''}
       <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="openFullEvalFromPanel('${studentId}','${courseId}')">Open full evaluation ›</button></div>`;
   } catch (e) {
     body.innerHTML = `<div style="color:#c00;">Error: ${e.message}</div>`;
@@ -3859,7 +3889,7 @@ function semesterSortDesc(a, b) {
 function stripHtml(html) {
   const d = document.createElement('div');
   d.innerHTML = html || '';
-  return (d.textContent || '').replace(/s+/g, ' ').trim();
+  return (d.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
 // Colored pill with the full grade description (e.g. "Strong Satisfactory"
