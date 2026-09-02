@@ -117,35 +117,29 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .logout-btn:hover { background: rgba(255,255,255,0.2); }
 
 /* ── Layout ── */
-.app-layout { display: flex; min-height: calc(100vh - 56px); }
+.app-layout { display: block; min-height: calc(100vh - 105px); }
 
-/* ── Sidebar ── */
-.sidebar { width: 280px; background: white; border-right: 1px solid #e0e0e0; overflow-y: auto; flex-shrink: 0; }
-.sidebar-header {
-  padding: 14px 16px; font-size: 14px; font-weight: 600; color: #555;
-  text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #eee;
-  background: #fafafa; display: flex; align-items: center; gap: 10px;
+/* ── Top navigation bar (horizontal) ── */
+.navbar {
+  display: flex; align-items: stretch; gap: 2px; background: #fff;
+  border-bottom: 1px solid #e0e0e0; padding: 0 16px; overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(23,35,58,.04);
 }
-.sidebar-header img { height: 24px; width: auto; }
-.sidebar-item {
-  padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
-  transition: background 0.15s; font-size: 14px;
+.navtab {
+  display: flex; align-items: center; gap: 8px; padding: 0 18px; height: 49px;
+  cursor: pointer; font-size: 14px; font-weight: 600; color: #566;
+  border: none; border-bottom: 3px solid transparent; background: none;
+  white-space: nowrap; font-family: inherit;
 }
-.sidebar-item:hover { background: #f0f4ff; }
-.sidebar-item.active { background: #e8efff; border-left: 3px solid #4a6cf7; }
-.si-title { font-weight: 600; color: #333; }
-.si-subtitle { font-size: 12px; color: #888; margin-top: 2px; }
-.si-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-top: 4px; }
-.badge-pending { background: #fff3cd; color: #856404; }
-.badge-complete { background: #d4edda; color: #155724; }
-.badge-partial { background: #e2e3f1; color: #383d6e; }
-.sidebar-section-label {
-  padding: 8px 16px 4px; font-size: 10px; font-weight: 700; color: #aaa;
-  text-transform: uppercase; letter-spacing: 1px;
-}
+.navtab:hover { color: #1e2a4a; background: #f5f8ff; }
+.navtab.active { color: #1e2a4a; border-bottom-color: #4a6cf7; }
+.navbar-spacer { flex: 1 1 auto; }
+.navbar-term { display: flex; align-items: center; padding: 8px 6px 8px 0; }
+.navbar-term select { min-width: 130px; }
+.navbar-right { display: flex; align-items: center; padding: 7px 0; }
 
 /* ── Main Content ── */
-.main-content { flex: 1; padding: 24px; overflow-y: auto; }
+.main-content { padding: 24px; max-width: 1400px; margin: 0 auto; }
 
 /* ── Cards ── */
 .card { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; overflow: hidden; }
@@ -398,14 +392,13 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 @media (max-width: 768px) {
   .topbar { flex-wrap: wrap; gap: 8px; }
   .topbar-center { max-width: 100%; margin: 8px 0 0 0; order: 3; flex-basis: 100%; }
-  .app-layout { flex-direction: column; }
-  .sidebar { width: 100%; max-height: 250px; }
+  .navtab { padding: 0 12px; height: 44px; }
   .eval-header-grid { grid-template-columns: 1fr; }
 }
 
 /* ── Print ── */
 @media print {
-  .topbar, .sidebar, .btn-group, .ql-toolbar, .private-notice, .public-notice,
+  .topbar, .navbar, .btn-group, .ql-toolbar, .private-notice, .public-notice,
   .amendment-banner, .filter-bar { display: none !important; }
   .main-content { padding: 0; }
   .card { box-shadow: none; border: 1px solid #ccc; }
@@ -479,13 +472,15 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
     </div>
   </div>
 
+  <!-- Horizontal navigation bar -->
+  <div class="navbar" id="sidebar"></div>
+
   <!-- App Layout -->
   <div class="app-layout">
-    <div class="sidebar" id="sidebar"></div>
     <div class="main-content" id="mainContent">
       <div class="welcome">
         <h2>Welcome to Narrative Evaluations</h2>
-        <p>Select an item from the sidebar to begin.</p>
+        <p>Select an item from the navigation bar to begin.</p>
       </div>
     </div>
   </div>
@@ -923,7 +918,9 @@ function buildDemoData() {
   for (let i = 0; i < ISP_TOPICS.length; i++) {
     const id = 'isp' + i;
     const fid = A.advisorFac[i % A.advisorFac.length];
-    const c = { id, code: 'ISP 290', name: 'ISP: ' + ISP_TOPICS[i], semester: 'January', year: 2026, faculty_id: fid, division: 'Interdisciplinary', description: mkCourseDescription('ISP: ' + ISP_TOPICS[i]), learning_objectives: mkObjectives(), credit_hours: 3, is_isp: true,
+    // ISPs are the January interterm but belong to the Fall semester (certified
+    // with the Fall contract), so they carry the Fall term, not a "January" term.
+    const c = { id, code: 'ISP 290', name: 'ISP: ' + ISP_TOPICS[i], semester: 'Fall', year: 2025, faculty_id: fid, division: 'Interdisciplinary', description: mkCourseDescription('ISP: ' + ISP_TOPICS[i]), learning_objectives: mkObjectives(), credit_hours: 3, is_isp: true,
       crn: String(29000 + i), subject_code: 'ISP', course_number: '0290', course_type: 'Independent Study Project', session: 'January Interterm', reg_status: 'Registered', instructors: [facById[fid]?.full_name || '—'] };
     d.courses.push(c); courseById[id] = c; ispCourses.push(c);
   }
@@ -1046,16 +1043,16 @@ function buildDemoData() {
   };
   const springCount = fid => d.courses.filter(c => c.faculty_id === fid && c.semester === 'Spring' && c.year === 2026).length;
   const hasType = (fid, t) => d.courses.some(c => c.faculty_id === fid && c.semester === 'Spring' && c.year === 2026 && c.course_type === t);
+  // Spring class lists get classes, tutorials, and labs — NOT ISPs (ISPs are the
+  // January interterm and live under the Fall semester).
   for (const fid of A.advisorFac.slice(0, 6)) {
     if (!hasType(fid, 'Tutorial')) mkFacultyCourse(fid, 'Tutorial', 'Tutorial: ' + pick(TUT_FAC));
-    if (!hasType(fid, 'Independent Study Project')) mkFacultyCourse(fid, 'Independent Study Project', 'ISP: ' + pick(ISP_FAC));
     mkFacultyCourse(fid, 'Course/Seminar/Topics', LONG_TITLE);   // guarantee one very long title
     while (springCount(fid) < 10) {
       const roll = rnd();
-      if (roll < 0.55) mkFacultyCourse(fid, 'Course/Seminar/Topics', pick(FAC_TITLES));
-      else if (roll < 0.72) mkFacultyCourse(fid, 'Tutorial', 'Tutorial: ' + pick(TUT_FAC));
-      else if (roll < 0.86) mkFacultyCourse(fid, 'Laboratory', pick(FAC_TITLES) + ' Laboratory');
-      else mkFacultyCourse(fid, 'Independent Study Project', 'ISP: ' + pick(ISP_FAC));
+      if (roll < 0.6) mkFacultyCourse(fid, 'Course/Seminar/Topics', pick(FAC_TITLES));
+      else if (roll < 0.82) mkFacultyCourse(fid, 'Tutorial', 'Tutorial: ' + pick(TUT_FAC));
+      else mkFacultyCourse(fid, 'Laboratory', pick(FAC_TITLES) + ' Laboratory');
     }
   }
 
@@ -1081,7 +1078,7 @@ function studentIsProbation(sid) { return demoData.evaluations.some(e => e.stude
 function studentStanding(sid) { return studentIsProbation(sid) ? 'Academic Probation' : 'Good Standing'; }
 function gradDateFor(year_level) { const y = { 'First Year': 2029, 'Second Year': 2028, 'Third Year': 2027, 'Fourth Year': 2026 }[year_level] || 2028; return '21-MAY-' + String(y).slice(2); }
 function allEvalsSubmitted(sid) { const ev = studentCurrentEvals(sid); return ev.length > 0 && ev.every(e => e.status === 'submitted'); }
-function studentHasISP(sid) { return demoData.evaluations.some(e => e.student_id === sid && _courseById[e.course_id]?.semester === 'January'); }
+function studentHasISP(sid) { return demoData.evaluations.some(e => e.student_id === sid && _courseById[e.course_id]?.is_isp); }
 const check = ok => ok ? '<span style="color:#1e7e34;font-weight:700;">✓</span>' : '<span style="color:#ccc;">—</span>';
 
 
@@ -1642,26 +1639,23 @@ function destroyEditors() {
 // SECTION 7: SIDEBAR
 // ═══════════════════════════════════════════════════════════════════
 
+// The navigation lives in a horizontal bar under the top bar.
 async function renderSidebar() {
   const sb = document.getElementById('sidebar');
   const u = appState.currentUser;
   if (!u) return;
-
   const canViewAll = u.role === 'registrar' || u.role === 'admin' || u.role === 'po_office';
+  const tab = (label, active, onclick) => `<button class="navtab${active ? ' active' : ''}" onclick="${onclick}">${label}</button>`;
 
   let html = '';
 
-  // ── Student: read-only view of their own evaluations, grouped by semester ──
   if (u.role === 'student') {
-    // The student lands directly on the full course list (grouped by term).
-    html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">My Evaluations</div>';
-    html += `<div style="padding:6px 14px;">
-      <button class="btn btn-primary btn-sm" style="width:100%;" onclick="printAllEvaluations()">&#128424; Print All Evaluations</button>
-    </div>`;
+    html += tab('My Narrative Evaluations', ['student-home', 'default', 'welcome'].includes(appState.view), 'navToStudentHome()');
+    html += '<div class="navbar-spacer"></div>';
+    html += `<div class="navbar-right"><button class="btn btn-primary btn-sm" onclick="printAllEvaluations()">&#128424; Print All Evaluations</button></div>`;
   }
 
   if (u.role === 'faculty' || u.role === 'admin') {
-    html += '<div class="sidebar-header"><img src="assets/logo4winds.png" alt="">Faculty</div>';
     try {
       const allCourses = await Data.getMyCourses(u.id);
       // January (ISP) is not a stand-alone term — ISPs belong to the Fall semester.
@@ -1671,60 +1665,28 @@ async function renderSidebar() {
       if (!appState.facultyTerm || !terms.includes(appState.facultyTerm)) {
         appState.facultyTerm = terms.includes(CURRENT_TERM) ? CURRENT_TERM : (terms[0] || CURRENT_TERM);
       }
-      // 1) Narrative Evaluations — the class list, with a term dropdown under it.
-      const neActive = (appState.view === 'faculty-classes' || appState.view === 'course' || appState.view === 'contract-roster') ? ' active' : '';
-      html += `<div class="sidebar-item${neActive}" onclick="navToFacultyTerm(appState.facultyTerm)">
-        <div class="si-title">Narrative Evaluations</div>
-        <div class="si-subtitle">${appState.facultyTerm} class list</div>
-      </div>`;
+      const neActive = (appState.view === 'faculty-classes' || appState.view === 'course' || appState.view === 'contract-roster');
+      html += tab('Narrative Evaluations', neActive, 'navToFacultyTerm(appState.facultyTerm)');
       if (terms.length > 1) {
         const opts = terms.map(t => `<option value="${t}"${t === appState.facultyTerm ? ' selected' : ''}>${t}</option>`).join('');
-        html += `<div style="padding:4px 14px 8px;">
-          <select class="filter-select" style="width:100%;" onchange="navToFacultyTerm(this.value)">${opts}</select>
-        </div>`;
+        html += `<div class="navbar-term"><select class="filter-select" onchange="navToFacultyTerm(this.value)">${opts}</select></div>`;
       }
-    } catch(e) {
-      html += '<div style="padding:12px;color:#c00;font-size:12px;">Error loading courses.</div>';
-    }
-    // 2) My Advisees (for faculty who advise).
+    } catch(e) { /* no courses */ }
     if (u.is_advisor) {
-      const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student' || appState.view === 'contract') ? ' active' : '';
-      html += `<div class="sidebar-item${adviseesActive}" onclick="navToAdvisees()">
-        <div class="si-title">My Advisees</div>
-        <div class="si-subtitle">Advising &amp; contracts</div>
-      </div>`;
+      const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student' || appState.view === 'contract');
+      html += tab('My Advisees', adviseesActive, 'navToAdvisees()');
     }
-    // 3) Browse Evaluations.
-    const browseActive = appState.view === 'browse' ? ' active' : '';
-    html += `<div class="sidebar-item${browseActive}" onclick="navToBrowse()">
-      <div class="si-title">Browse Evaluations</div>
-      <div class="si-subtitle">Search by semester, AOC, professor</div>
-    </div>`;
+    html += tab('Browse Evaluations', appState.view === 'browse', 'navToBrowse()');
   }
 
   if (u.is_advisor && u.role !== 'faculty') {
-    html += '<div class="sidebar-header" style="margin-top:8px;"><img src="assets/logo4winds.png" alt="">Advising</div>';
-    let count = '';
-    try { count = `${(await Data.getMyAdvisees(u.id)).length} advisees`; } catch(e) { count = ''; }
-    const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student' || appState.view === 'contract') ? ' active' : '';
-    html += `<div class="sidebar-item${adviseesActive}" onclick="navToAdvisees()">
-      <div class="si-title">My Advisees</div>
-      <div class="si-subtitle">${count}</div>
-    </div>`;
+    const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student' || appState.view === 'contract');
+    html += tab('My Advisees', adviseesActive, 'navToAdvisees()');
   }
 
   if (canViewAll) {
-    html += '<div class="sidebar-header" style="margin-top:8px;"><img src="assets/logo4winds.png" alt="">Administration</div>';
-    const regActive = appState.view === 'registrar' ? ' active' : '';
-    const logActive = appState.view === 'access-log' ? ' active' : '';
-    html += `<div class="sidebar-item${regActive}" onclick="navToRegistrar()">
-      <div class="si-title">All Evaluations</div>
-      <div class="si-subtitle">View, search, and export</div>
-    </div>
-    <div class="sidebar-item${logActive}" onclick="navToAccessLog()">
-      <div class="si-title">FERPA Access Log</div>
-      <div class="si-subtitle">Audit trail</div>
-    </div>`;
+    html += tab('All Evaluations', appState.view === 'registrar' || appState.view === 'reg-packet', 'navToRegistrar()');
+    html += tab('FERPA Access Log', appState.view === 'access-log', 'navToAccessLog()');
   }
 
   sb.innerHTML = html;
@@ -3237,13 +3199,12 @@ function renderContractView(mc) {
   const term = appState.contractTerm || CURRENT_TERM;
   const contract = getContract(student.id, term);
   const advisor = USE_DEMO ? demoData.profiles.find(p => p.id === student.advisor_id) : null;
-  // Semester courses, plus (for a Fall contract) that year's January ISPs shown in
-  // their own section — the January ISP is a standalone activity certified with the
-  // Fall contract, as on the Registrar's SES page.
-  const [tSem, tYr] = term.split(' ');
+  // Semester courses, with the term's ISPs shown in their own section (ISPs are the
+  // January interterm that belongs to — and is certified with — the Fall contract).
   const enrolled = (student.enrollments || []).map(cid => _courseById[cid]).filter(Boolean);
-  const regCourses = enrolled.filter(c => `${c.semester} ${c.year}` === term && !c.is_isp);
-  const ispCourses = enrolled.filter(c => tSem === 'Fall' && c.is_isp && c.semester === 'January' && c.year === (+tYr + 1));
+  const termCourses = enrolled.filter(c => `${c.semester} ${c.year}` === term);
+  const regCourses = termCourses.filter(c => !c.is_isp);
+  const ispCourses = termCourses.filter(c => c.is_isp);
 
   const mkCourseRow = c => {
     const ev = USE_DEMO ? demoData.evaluations.find(e => e.student_id === student.id && e.course_id === c.id) : null;
