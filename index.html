@@ -158,7 +158,7 @@ h1, h2, h3, .card-header, .login-title, .course-row-title, .eval-info strong { f
   border: none; border-bottom: 3px solid transparent; background: none;
   white-space: nowrap; font-family: inherit;
 }
-.navtab:hover { color: #1e2a4a; background: #f5f8ff; }
+.navtab:hover { color: var(--ncf-navy); background: #f5f8ff; }
 .navtab.active { color: var(--ncf-navy); border-bottom-color: var(--ncf-gold); border-bottom-width: 3px; }
 .navbar-spacer { flex: 1 1 auto; }
 .navbar-term { display: flex; align-items: center; padding: 8px 6px 8px 0; }
@@ -226,17 +226,35 @@ h1, h2, h3, .card-header, .login-title, .course-row-title, .eval-info strong { f
 .roster-table tbody tr.early-row > td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .early-chip { display: inline-block; background: #fff4d6; color: #8a6100; border: 1px solid #f0d98a; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
 .grad-cap { font-size: 15px; vertical-align: middle; }
+/* Student roster cards (Class Roster · Contract Advisees · contract courses) */
+.roster-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 14px; }
+.student-card { position: relative; border: 1px solid #ece6da; border-radius: 12px; background: var(--ncf-surface); padding: 14px 16px; cursor: pointer; transition: box-shadow .14s, border-color .14s, transform .06s; display: flex; flex-direction: column; gap: 8px; }
+.student-card:hover { border-color: var(--ncf-gold); box-shadow: 0 4px 16px rgba(32,41,68,.10); }
+.student-card:active { transform: translateY(1px); }
+.student-card.is-grad { box-shadow: inset 4px 0 0 var(--ncf-gold); }
+.student-card.is-grad:hover { box-shadow: inset 4px 0 0 var(--ncf-gold), 0 4px 16px rgba(32,41,68,.10); }
+.student-card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.student-card-name { font-family: var(--serif); font-weight: 600; font-size: 16px; color: var(--ncf-navy); }
+.student-card-sub { font-size: 12.5px; color: #7a8494; margin-top: -2px; }
+.student-card-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: #445; }
+.student-card-meta b { color: #7a8494; font-weight: 600; }
+.student-card-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; padding-top: 10px; border-top: 1px solid #f0ece2; }
+.student-card-foot .spacer { flex: 1; }
+/* Contract-certification header meta chips (enrollment / criteria / standing) */
+.cc-meta { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-top: 8px; }
+.cc-meta-item { font-size: 12.5px; color: #2c3440; background: #f5f2ea; border: 1px solid #ece6da; border-radius: 8px; padding: 4px 10px; }
+.cc-meta-item b { color: #7a8494; font-weight: 600; }
 .contract-row { background: linear-gradient(0deg,#fbfcff,#fbfcff); border-color: #dbe4f5; margin-bottom: 20px; }
 /* Collapsible sections (Course Description / Learning Objectives) */
 .collapse-sec { border: 1px solid #e7ebf2; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
-.collapse-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; font-weight: 650; color: #1e2a4a; background: #f7f9fc; }
+.collapse-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; font-weight: 650; color: var(--ncf-navy); background: #f7f9fc; }
 .collapse-head:hover { background: #eef3fb; }
 .collapse-caret { transition: transform .15s; color: #7a8494; }
 .collapse-head.open .collapse-caret { transform: rotate(90deg); }
 .collapse-body { padding: 14px 16px; font-size: 14px; line-height: 1.7; color: #2c3440; }
 .collapse-body p { margin: 0 0 11px; }
 .course-row-main { min-width: 0; }
-.course-row-title { font-weight: 650; font-size: 15px; color: #1e2a4a; display: flex; align-items: center; gap: 8px; }
+.course-row-title { font-weight: 650; font-size: 15px; color: var(--ncf-navy); display: flex; align-items: center; gap: 8px; }
 .course-row-meta { font-size: 12.5px; color: #7a8494; margin-top: 3px; }
 .course-row-inst { font-size: 13px; color: #445; margin-top: 3px; }
 .course-row-side { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
@@ -262,7 +280,7 @@ h1, h2, h3, .card-header, .login-title, .course-row-title, .eval-info strong { f
 .senior-pill { background: #ffe082; color: #7a5b00; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
 /* SES-style roster / contract tables */
 .ses-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
-.ses-table th { background: #cfe0f0; color: #1a3a5c; font-weight: 600; padding: 6px 6px; border: 1px solid #b9cee2; text-align: left; white-space: normal; vertical-align: bottom; line-height: 1.2; }
+.ses-table th { background: #cfe0f0; color: var(--ncf-navy); font-weight: 600; padding: 6px 6px; border: 1px solid #b9cee2; text-align: left; white-space: normal; vertical-align: bottom; line-height: 1.2; }
 .ses-table td { padding: 5px 6px; border: 1px solid #e3e9f0; vertical-align: middle; }
 .ses-table tbody tr:nth-child(even) td { background: #f6f9fc; }
 .ses-table tr.senior td { background: #fff8d6 !important; }
@@ -270,7 +288,7 @@ h1, h2, h3, .card-header, .login-title, .course-row-title, .eval-info strong { f
 .ses-table tr.clickable:hover td { background: #eaf2fb !important; }
 .ses-note { background: #fff8d6; border: 1px solid #f0e3a0; color: #7a6a1a; font-size: 12px; padding: 7px 10px; border-radius: 4px; margin: 8px 0; }
 .ses-info { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
-.ses-info th { background: #cfe0f0; color: #1a3a5c; font-weight: 600; padding: 8px; border: 1px solid #b9cee2; }
+.ses-info th { background: #cfe0f0; color: var(--ncf-navy); font-weight: 600; padding: 8px; border: 1px solid #b9cee2; }
 .ses-info td { padding: 8px; border: 1px solid #e3e9f0; text-align: center; }
 /* Advisor "all evaluations" master-detail (terms list + collapsible tiles) */
 .adv-split { display: flex; gap: 16px; align-items: flex-start; }
@@ -299,6 +317,9 @@ h1, h2, h3, .card-header, .login-title, .course-row-title, .eval-info strong { f
 .evalpanel { position: fixed; top: 0; right: 0; height: 100vh; width: 560px; max-width: 92vw; background: #fff; box-shadow: -8px 0 28px rgba(0,0,0,0.18); transform: translateX(100%); transition: transform .25s ease; z-index: 901; display: flex; flex-direction: column; }
 .evalpanel.wide { width: 760px; }
 .evalpanel.open { transform: translateX(0); }
+/* The course-eval panel stacks ABOVE the contract-certification panel (which it slides over) */
+#evalPanelBackdrop { z-index: 902; }
+#evalPanel { z-index: 903; }
 .evalpanel-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #eee; }
 .evalpanel-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
 .evalpanel-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #888; line-height: 1; }
@@ -330,7 +351,7 @@ h1, h2, h3, .card-header, .login-title, .course-row-title, .eval-info strong { f
   padding: 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.5;
   color: #555; max-height: 150px; overflow-y: auto;
 }
-.course-desc-box strong { display: block; color: #1e2a4a; margin-bottom: 4px; }
+.course-desc-box strong { display: block; color: var(--ncf-navy); margin-bottom: 4px; }
 .course-desc-box p { margin: 0 0 8px; }
 /* Consolidated evaluation header (student + course info, compact) */
 .eval-info { background: #f7f9fc; border: 1px solid #e7ebf2; border-radius: 10px; padding: 12px 16px; }
@@ -526,6 +547,16 @@ h1, h2, h3, .card-header, .login-title, .course-row-title, .eval-info strong { f
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- Slide-over Contract Certification panel (slides over the Contract Advisees list) -->
+<div class="evalpanel-backdrop contractpanel-backdrop" id="contractPanelBackdrop" onclick="closeContractPanel()"></div>
+<div class="evalpanel wide contractpanel" id="contractPanel">
+  <div class="evalpanel-head">
+    <strong id="contractPanelTitle">Contract Certification</strong>
+    <button class="evalpanel-close" onclick="closeContractPanel()" aria-label="Close">&times;</button>
+  </div>
+  <div class="evalpanel-body" id="contractPanelBody"></div>
+</div>
 
 <!-- Slide-over evaluation panel (read an evaluation without leaving the page) -->
 <div class="evalpanel-backdrop" id="evalPanelBackdrop" onclick="closeEvalPanel()"></div>
@@ -1711,14 +1742,14 @@ async function renderSidebar() {
       }
     } catch(e) { /* no courses */ }
     if (u.is_advisor) {
-      const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student' || appState.view === 'contract');
+      const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student');
       html += tab('My Advisees', adviseesActive, 'navToAdvisees()');
     }
     html += tab('Browse Evaluations', appState.view === 'browse', 'navToBrowse()');
   }
 
   if (u.is_advisor && u.role !== 'faculty') {
-    const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student' || appState.view === 'contract');
+    const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisor-student');
     html += tab('My Advisees', adviseesActive, 'navToAdvisees()');
   }
 
@@ -1787,14 +1818,25 @@ function navToAdvisee(studentId) {
   renderMain();
 }
 
+// The Contract Certification now slides in over whatever list is behind it
+// (Contract Advisees / My Advisees), just like the Course Narrative Evaluation form.
 function navToContract(studentId, opts = {}) {
   if (!warnIfDirty()) return;
-  destroyEditors();
   appState.selectedStudentId = studentId;
   appState.contractTerm = opts.term || CURRENT_TERM;
   appState.contractReturn = opts.from || 'advisees';
-  appState.view = 'contract';
-  renderSidebar();
+  document.getElementById('contractPanelBackdrop').classList.add('open');
+  document.getElementById('contractPanel').classList.add('open');
+  renderContractView(document.getElementById('contractPanelBody'));
+}
+
+function closeContractPanel() {
+  // Close any nested course-eval panel first.
+  closeEvalPanel();
+  document.getElementById('contractPanel')?.classList.remove('open');
+  document.getElementById('contractPanelBackdrop')?.classList.remove('open');
+  _contractQuill = null;
+  // Refresh the list behind so certification / designation status updates.
   renderMain();
 }
 
@@ -1985,6 +2027,19 @@ function courseHeadingBlock(course, facultyName) {
     <div class="course-row-inst" style="font-size:13.5px;">Instructor: ${instructorsOf(course, facultyName)}</div>`;
 }
 
+// Roster status icons. Graduation cap = scheduled to graduate this year.
+// "Early" chip = evaluation/certification due earlier — for expected graduates
+// AND students on academic probation (both need earlier attention).
+function studentIcons(grad, probation) {
+  let s = '';
+  if (grad) s += ` <span class="grad-cap" title="Scheduled to graduate this year">&#127891;</span>`;
+  if (grad || probation) {
+    const why = grad ? 'scheduled to graduate' : 'academic probation';
+    s += ` <span class="early-chip" title="Evaluation due earlier — ${why}">Early</span>`;
+  }
+  return s;
+}
+
 // Faculty class roster (the class list view).
 async function renderCourseView(mc) {
   mc.innerHTML = '<div class="loading"><div class="spinner"></div>Loading roster…</div>';
@@ -2000,7 +2055,7 @@ async function renderCourseView(mc) {
     const credits = Number(courseObj.credit_hours ?? 3).toFixed(1);
     let anyEarly = false;
 
-    let rows = '';
+    let cards = '';
     for (const s of students) {
       const ev = USE_DEMO ? demoData.evaluations.find(e => e.student_id === s.id && e.course_id === appState.selectedCourseId) : null;
       const status = !ev ? '<span class="status-badge status-not-started">Not Started</span>'
@@ -2009,29 +2064,33 @@ async function renderCourseView(mc) {
       let desig = ev ? getDesignationPill(ev.designation) : '<span style="color:#bbb;">—</span>';
       if (ev && ev.designation === 'inc' && ev.completion_deadline) desig += `<div class="row-deadline" style="margin-top:2px;">Deadline: ${fmtAttend(ev.completion_deadline)}</div>`;
       const standing = studentStanding(s.id);
-      const standingCell = standing === 'Academic Probation'
-        ? '<span class="probation">Academic Probation</span>' : 'Good Standing';
+      const probation = standing === 'Academic Probation';
+      const standingBadge = probation
+        ? '<span class="probation">Academic Probation</span>' : '<span style="font-size:12px;color:#1e7e34;">Good Standing</span>';
       const advisor = s.advisor ? s.advisor.full_name : (USE_DEMO ? (demoData.profiles.find(p => p.id === s.advisor_id)?.full_name || '—') : '—');
       const preferred = s.preferred_name && s.preferred_name !== s.full_name.split(' ')[0]
-        ? s.preferred_name : (s.preferred_name || '—');
+        ? s.preferred_name : '';
       // A graduation cap flags students scheduled to graduate that year (seniors).
       const grad = s.year_level === 'Fourth Year';
-      if (grad) anyEarly = true;
-      const gradCap = grad
-        ? ` <span class="grad-cap" title="Scheduled to graduate — evaluation due earlier">&#127891;</span>` : '';
-      rows += `<tr class="clickable-row${grad ? ' early-row' : ''}" onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
-        <td><strong>${s.full_name}</strong>${gradCap}</td>
-        <td>${preferred}</td>
-        <td>${s.n_number}</td>
-        <td>Registered</td>
-        <td>${credits}</td>
-        <td>${advisor}</td>
-        <td>${standingCell}</td>
-        <td>${gradDateFor(s.year_level)}</td>
-        <td style="text-align:center;">${check(official)}</td>
-        <td>${desig}</td>
-        <td>${status}</td>
-      </tr>`;
+      if (grad || probation) anyEarly = true;
+      cards += `<div class="student-card${grad ? ' is-grad' : ''}" onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
+        <div>
+          <div class="student-card-head"><span class="student-card-name">${s.full_name}</span>${studentIcons(grad, probation)}</div>
+          <div class="student-card-sub">${s.n_number}${preferred ? ` · “${preferred}”` : ''}</div>
+        </div>
+        <div class="student-card-meta">
+          <span><b>Advisor:</b> ${advisor}</span>
+          <span><b>Expected Grad:</b> ${gradDateFor(s.year_level)}</span>
+          <span><b>Credits:</b> ${credits}</span>
+        </div>
+        <div style="margin-top:-2px;">${standingBadge}</div>
+        <div class="student-card-foot">
+          ${desig}
+          <span class="spacer"></span>
+          <span title="Official (rolled to academic history)">${official ? '✓ Official' : ''}</span>
+          ${status}
+        </div>
+      </div>`;
     }
 
     mc.innerHTML = `
@@ -2060,16 +2119,8 @@ async function renderCourseView(mc) {
       <div class="card">
         <div class="card-header">Class Roster <span style="font-weight:400;font-size:13px;color:#888;">${students.length} student${students.length !== 1 ? 's' : ''}</span></div>
         <div class="card-body">
-          ${anyEarly ? '<div style="font-size:12px;color:#7a8494;margin-bottom:8px;"><span class="grad-cap">&#127891;</span> = scheduled to graduate this year — evaluation due earlier.</div>' : ''}
-          <div style="overflow-x:auto;">
-          <table class="student-table roster-table">
-            <thead><tr>
-              <th>Student</th><th>Preferred</th><th>ID</th><th>Reg.</th><th>Credits</th>
-              <th>Advisor</th><th>Academic Standing</th><th>Expected Grad</th><th>Official</th><th>Designation</th><th>Status</th>
-            </tr></thead>
-            <tbody>${rows || '<tr><td colspan="11" style="text-align:center;color:#888;padding:20px;">No students enrolled.</td></tr>'}</tbody>
-          </table>
-          </div>
+          ${anyEarly ? '<div style="font-size:12px;color:#7a8494;margin-bottom:12px;"><span class="grad-cap">&#127891;</span> = scheduled to graduate this year · <span class="early-chip">Early</span> = evaluation due earlier (graduating or on academic probation).</div>' : ''}
+          ${cards ? `<div class="roster-cards">${cards}</div>` : '<div style="text-align:center;color:#888;padding:20px;">No students enrolled.</div>'}
         </div>
       </div>`;
   } catch(e) {
@@ -2086,44 +2137,50 @@ function renderContractRoster(mc) {
     .slice().sort((a, b) => a.full_name.localeCompare(b.full_name));   // alphabetical
   let anyEarly = false;
 
-  const rows = advisees.map(s => {
+  const cards = advisees.map(s => {
     const contract = getContract(s.id, term);
     const standing = studentStanding(s.id);
+    const probation = standing === 'Academic Probation';
     const grad = s.year_level === 'Fourth Year';
-    if (grad) anyEarly = true;
-    const gradCap = grad ? ` <span class="grad-cap" title="Scheduled to graduate — certification due earlier">&#127891;</span>` : '';
-    const preferred = (s.preferred_name && s.preferred_name !== s.full_name.split(' ')[0]) ? s.preferred_name : (s.preferred_name || '—');
+    if (grad || probation) anyEarly = true;
+    const preferred = (s.preferred_name && s.preferred_name !== s.full_name.split(' ')[0]) ? s.preferred_name : '';
     // Advisor of record — should match the instructor, but may differ (data entry).
     const advisorName = s.contract_advisor_name || u.full_name;
     const advisorCell = s.contract_advisor_name
       ? `<span style="color:#b93a2b;" title="Advisor of record differs from the instructor">${advisorName} ⚠</span>` : advisorName;
     const criteria = contract.contract_criteria || s.contract_criteria || '—';
     const allEvals = allEvalsSubmitted(s.id)
-      ? '<span class="read-yes" title="All narrative evaluations rolled to academic history">Y</span>' : '<span style="color:#ccc;">—</span>';
-    const official = check(contract.certified || contract.banner_pushed);
+      ? '<span class="read-yes" title="All narrative evaluations rolled to academic history">All evals in</span>' : '<span style="color:#b8860b;font-size:12px;">Evals pending</span>';
+    const official = !!(contract.certified || contract.banner_pushed);
     const desig = contract.designation
       ? `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : contract.designation === 'unsat' ? 'desig-unsat' : 'desig-inc'}">${contractDesignationLabel(contract.designation)}</span>`
       : '<span style="color:#bbb;">—</span>';
     const status = contract.certified
-      ? '<span class="status-badge status-submitted">Submitted</span>'
-      : '<span class="status-badge status-not-started">Not Started</span>';
+      ? '<span class="status-badge status-submitted">Certified</span>'
+      : '<span class="status-badge status-not-started">Not Certified</span>';
     const credits = demoData.evaluations.filter(e => e.student_id === s.id && e.status === 'submitted').length * 3;
-    return `<tr class="clickable-row${grad ? ' early-row' : ''}" onclick="navToContract('${s.id}',{term:'${term}',from:'contract-roster'})">
-      <td><strong>${s.full_name}</strong>${gradCap}</td>
-      <td>${preferred}</td>
-      <td>${s.n_number}</td>
-      <td>Enrolled</td>
-      <td>${advisorCell}</td>
-      <td>${standing === 'Academic Probation' ? '<span class="probation">Academic Probation</span>' : 'Good Standing'}</td>
-      <td>${gradDateFor(s.year_level)}</td>
-      <td style="text-align:center;">${credits}</td>
-      <td style="text-align:center;">${s.contracts_completed ?? '—'}</td>
-      <td>${criteria}</td>
-      <td style="text-align:center;">${allEvals}</td>
-      <td style="text-align:center;">${official}</td>
-      <td>${desig}</td>
-      <td>${status}</td>
-    </tr>`;
+    return `<div class="student-card${grad ? ' is-grad' : ''}" onclick="navToContract('${s.id}',{term:'${term}',from:'contract-roster'})">
+      <div>
+        <div class="student-card-head"><span class="student-card-name">${s.full_name}</span>${studentIcons(grad, probation)}</div>
+        <div class="student-card-sub">${s.n_number}${preferred ? ` · “${preferred}”` : ''} · Advisor: ${advisorCell}</div>
+      </div>
+      <div class="student-card-meta">
+        <span><b>Expected Grad:</b> ${gradDateFor(s.year_level)}</span>
+        <span><b>Credits:</b> ${credits}</span>
+        <span><b>Contracts:</b> ${s.contracts_completed ?? '—'}</span>
+      </div>
+      <div class="student-card-meta">
+        <span><b>Criteria:</b> ${criteria}</span>
+        <span>${probation ? '<span class="probation">Academic Probation</span>' : '<span style="color:#1e7e34;">Good Standing</span>'}</span>
+        <span>${allEvals}</span>
+      </div>
+      <div class="student-card-foot">
+        ${desig}
+        <span class="spacer"></span>
+        <span title="Certification pushed to Banner">${official ? '✓ Official' : ''}</span>
+        ${status}
+      </div>
+    </div>`;
   }).join('');
 
   mc.innerHTML = `
@@ -2140,19 +2197,11 @@ function renderContractRoster(mc) {
     <div class="card">
       <div class="card-header">Contract Advisees <span style="font-weight:400;font-size:13px;color:#888;">${advisees.length} advisee${advisees.length !== 1 ? 's' : ''}</span></div>
       <div class="card-body">
-        <div style="font-size:12px;color:#7a8494;margin-bottom:8px;">
-          <strong>All Evals Submitted</strong> = <span class="read-yes">Y</span> when every course narrative is rolled to academic history.
-          ${anyEarly ? '&nbsp;·&nbsp; <span class="grad-cap">&#127891;</span> = scheduled to graduate this year (certification due earlier).' : ''}
+        <div style="font-size:12px;color:#7a8494;margin-bottom:12px;">
+          <span class="read-yes">All evals in</span> = every course narrative rolled to academic history.
+          ${anyEarly ? '&nbsp;·&nbsp; <span class="grad-cap">&#127891;</span> = scheduled to graduate this year · <span class="early-chip">Early</span> = certification due earlier (graduating or on academic probation).' : ''}
         </div>
-        <div style="overflow-x:auto;">
-        <table class="student-table roster-table">
-          <thead><tr>
-            <th>Student</th><th>Preferred</th><th>ID</th><th>Enroll.</th><th>Advisor</th><th>Academic Standing</th>
-            <th>Expected Grad</th><th>Credits</th><th>Contracts</th><th>Criteria</th><th>All Evals Submitted</th><th>Official</th><th>Designation</th><th>Status</th>
-          </tr></thead>
-          <tbody>${rows || '<tr><td colspan="14" style="text-align:center;color:#888;padding:20px;">No advisees.</td></tr>'}</tbody>
-        </table>
-        </div>
+        ${cards ? `<div class="roster-cards">${cards}</div>` : '<div style="text-align:center;color:#888;padding:20px;">No advisees.</div>'}
       </div>
     </div>`;
 }
@@ -2223,14 +2272,14 @@ async function renderEvaluationForm(mc) {
       <div class="lock-notice">
         ✓ <strong>Submitted</strong> on ${submittedOn}.
         The Registrar deadline for ${evalTerm} (${deadlineLabel(evalTerm)}) has passed, so this evaluation is now permanently locked.
-        <a href="${ACADEMIC_CALENDAR_URL}" target="_blank" rel="noopener" style="color:#1a3a5c;">NCF academic calendar ↗</a>
+        <a href="${ACADEMIC_CALENDAR_URL}" target="_blank" rel="noopener" style="color:var(--ncf-navy);">NCF academic calendar ↗</a>
       </div>` : '';
 
     // Submitted, but the faculty author can still correct it before the deadline.
     const editWindowNotice = canEditSubmitted ? `
-      <div class="lock-notice" style="background:#eef6ff;border-color:#b6d4f2;color:#1a3a5c;">
+      <div class="lock-notice" style="background:#eef6ff;border-color:#b6d4f2;color:var(--ncf-navy);">
         ✓ <strong>Submitted</strong>${submittedOn ? ' on ' + submittedOn : ''}. You may still correct it until the Registrar deadline for ${evalTerm} — <strong>${deadlineLabel(evalTerm)}</strong>. Any change re-submits the record and is logged. After the deadline it locks automatically.
-        &nbsp;<a href="${ACADEMIC_CALENDAR_URL}" target="_blank" rel="noopener" style="color:#1a3a5c;font-weight:600;">NCF academic calendar ↗</a>
+        &nbsp;<a href="${ACADEMIC_CALENDAR_URL}" target="_blank" rel="noopener" style="color:var(--ncf-navy);font-weight:600;">NCF academic calendar ↗</a>
       </div>` : '';
 
     const viewerNotice = (isReadOnlyViewer && !isSubmitted) ? `
@@ -2254,7 +2303,7 @@ async function renderEvaluationForm(mc) {
 
           <div class="eval-info">
             <div style="font-size:15px;"><strong>${student.full_name}</strong> <span style="color:#888;">(${student.n_number})</span> <span style="color:#7a8494;">· Expected Graduation: ${gradDateFor(student.year_level)}</span></div>
-            <div style="font-weight:650;font-size:15.5px;margin-top:8px;color:#1e2a4a;">${course.name}</div>
+            <div style="font-weight:650;font-size:15.5px;margin-top:8px;color:var(--ncf-navy);">${course.name}</div>
             <div style="font-size:12.5px;color:#7a8494;margin-top:2px;">${courseMetaLine(course)} · Registration: ${course.reg_status === 'Withdrawn' ? '<span style="color:#b93a2b;font-weight:600;">Withdrawn ⚠ (from Banner)</span>' : (course.reg_status || '—')}</div>
             <div style="font-size:13px;color:#445;margin-top:2px;">Instructor: ${instructorsOf(course, facultyName)}</div>
           </div>
@@ -2722,7 +2771,7 @@ async function renderAdvisorStudentView(mc) {
       </div>
       <div class="adv-split">
         <div class="adv-terms">
-          <div style="font-size:11px;font-weight:700;color:#1a3a5c;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Semesters</div>
+          <div style="font-size:11px;font-weight:700;color:var(--ncf-navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Semesters</div>
           ${termList || '<div style="color:#888;font-size:12px;">None</div>'}
           <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px;">
             <select class="filter-select" id="aArea" onchange="renderAdvisorTermPane()">${opt(areas, 'All areas', '')}</select>
@@ -3025,7 +3074,7 @@ async function printStudentNarrative(courseId) {
 // student's narrative evaluations and contract certifications, all terms, in one
 // document. Not wired up yet.
 function printAllEvaluations() {
-  showToast('Print All Evaluations — this will produce one PDF of every evaluation and contract certification (all terms). Not enabled in the mockup.', '#1a3a5c');
+  showToast('Print All Evaluations — this will produce one PDF of every evaluation and contract certification (all terms). Not enabled in the mockup.', 'var(--ncf-navy)');
 }
 
 
@@ -3185,44 +3234,46 @@ async function renderAdviseesList(mc) {
     const advisees = await Data.getMyAdvisees(u.id);
     const yrOrder = { 'Fourth Year': 0, 'Third Year': 1, 'Second Year': 2, 'First Year': 3 };
     advisees.sort((a, b) => (yrOrder[a.year_level] ?? 9) - (yrOrder[b.year_level] ?? 9) || a.full_name.localeCompare(b.full_name));
-    const rows = advisees.map((s, i) => {
+    const cards = advisees.map(s => {
       const isSenior = s.year_level === 'Fourth Year';
       const contract = getContract(s.id);
       const standing = studentStanding(s.id);
-      const desig = contractDesignationLabel(contract.designation);
-      return `<tr class="clickable${isSenior ? ' senior' : ''}" onclick="navToContract('${s.id}')">
-        <td>${i + 1}</td>
-        <td>${s.n_number}</td>
-        <td>${s.full_name}${isSenior ? ' <span class="senior-pill">Senior</span>' : ''}</td>
-        <td>Enrolled</td>
-        <td>${standing}</td>
-        <td>${gradDateFor(s.year_level)}</td>
-        <td>${s.contract_criteria || '—'}</td>
-        <td style="text-align:center;">${check(studentHasISP(s.id))}</td>
-        <td style="text-align:center;">${check(allEvalsSubmitted(s.id))}</td>
-        <td>${desig}</td>
-        <td style="text-align:center;">${check(contract.banner_pushed)}</td>
-        <td style="text-align:center;">${standing === 'Academic Probation' ? '<span title="Academic probation" style="color:#c0392b;font-weight:700;">&#9873;</span>' : ''}</td>
-        <td>${contract.certified ? '<span class="banner-ok">Certified</span>' : '<span style="color:#888;font-size:12px;">Pending</span>'}</td>
-      </tr>`;
+      const probation = standing === 'Academic Probation';
+      const desig = contract.designation
+        ? `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : contract.designation === 'unsat' ? 'desig-unsat' : 'desig-inc'}">${contractDesignationLabel(contract.designation)}</span>`
+        : '<span style="color:#bbb;">—</span>';
+      const allEvals = allEvalsSubmitted(s.id)
+        ? '<span class="read-yes" title="All narrative evaluations rolled to academic history">All evals in</span>' : '<span style="color:#b8860b;font-size:12px;">Evals pending</span>';
+      return `<div class="student-card${isSenior ? ' is-grad' : ''}" onclick="navToContract('${s.id}')">
+        <div>
+          <div class="student-card-head"><span class="student-card-name">${s.full_name}</span>${studentIcons(isSenior, probation)}</div>
+          <div class="student-card-sub">${s.n_number}${studentHasISP(s.id) ? ' · has ISP' : ''}</div>
+        </div>
+        <div class="student-card-meta">
+          <span><b>Expected Grad:</b> ${gradDateFor(s.year_level)}</span>
+          <span><b>Criteria:</b> ${s.contract_criteria || '—'}</span>
+        </div>
+        <div class="student-card-meta">
+          <span>${probation ? '<span class="probation">Academic Probation</span>' : '<span style="color:#1e7e34;">Good Standing</span>'}</span>
+          <span>${allEvals}</span>
+        </div>
+        <div class="student-card-foot">
+          ${desig}
+          <span class="spacer"></span>
+          <span title="Certification pushed to Banner">${contract.banner_pushed ? '✓ Official' : ''}</span>
+          ${contract.certified ? '<span class="status-badge status-submitted">Certified</span>' : '<span class="status-badge status-not-started">Pending</span>'}
+        </div>
+      </div>`;
     }).join('');
     const seniors = advisees.filter(s => s.year_level === 'Fourth Year').length;
+    const anyEarly = advisees.some(s => s.year_level === 'Fourth Year' || studentStanding(s.id) === 'Academic Probation');
     mc.innerHTML = `
       <div class="card">
         <div class="card-body">
-          <h3 style="color:#1a3a5c;margin-bottom:2px;">${u.full_name} — ${CURRENT_TERM} Contract Advisees</h3>
+          <h3 style="color:var(--ncf-navy);margin-bottom:2px;">${u.full_name} — ${CURRENT_TERM} Contract Advisees</h3>
           <div style="color:#666;font-size:13px;margin-bottom:8px;">${u.division || ''} · ${advisees.length} advisees · ${seniors} seniors</div>
-          <div class="ses-note">Seniors (Fourth Year) are highlighted in yellow. Click a student to open and certify their contract.</div>
-          <div style="overflow-x:auto;">
-            <table class="ses-table">
-              <thead><tr>
-                <th>#</th><th>ID</th><th>Student Name</th><th>Enroll.</th><th>Academic Standing</th>
-                <th>Grad Date</th><th>Contract Criteria</th><th>ISP</th><th>All Evals</th>
-                <th>Designation</th><th>Official (Rolled)</th><th>Flag</th><th>Cert.</th>
-              </tr></thead>
-              <tbody>${rows || '<tr><td colspan="13" style="text-align:center;color:#888;padding:20px;">No advisees assigned.</td></tr>'}</tbody>
-            </table>
-          </div>
+          <div class="ses-note" style="margin-bottom:12px;">Click a student to open and certify their contract.${anyEarly ? ' <span class="grad-cap">&#127891;</span> = scheduled to graduate this year · <span class="early-chip">Early</span> = certification due earlier (graduating or on academic probation).' : ''}</div>
+          ${cards ? `<div class="roster-cards">${cards}</div>` : '<div style="text-align:center;color:#888;padding:20px;">No advisees assigned.</div>'}
         </div>
       </div>`;
   } catch (e) {
@@ -3244,85 +3295,53 @@ function renderContractView(mc) {
   const regCourses = termCourses.filter(c => !c.is_isp);
   const ispCourses = termCourses.filter(c => c.is_isp);
 
-  const mkCourseRow = c => {
+  // Each course renders as a card; clicking slides in its narrative evaluation (display only).
+  const mkCourseCard = c => {
     const ev = USE_DEMO ? demoData.evaluations.find(e => e.student_id === student.id && e.course_id === c.id) : null;
     const faculty = USE_DEMO ? demoData.profiles.find(p => p.id === c.faculty_id) : null;
     const official = !!(ev && ev.status === 'submitted');
-    return `<tr>
-      <td>${c.crn || (c.code || '').replace('CRN ', '')}</td>
-      <td>${c.name}<div style="font-size:11px;color:#7a8494;">${(c.subject_code || '')} ${(c.course_number || '')}</div></td>
-      <td>${c.course_type || 'Course/Seminar/Topics'}</td>
-      <td>${c.reg_status || 'Registered'}</td>
-      <td>${instructorsOf(c, faculty?.full_name)}</td>
-      <td>${c.session || 'Full Term'}</td>
-      <td>${ev ? designationLabel(ev.designation) : '—'}</td>
-      <td style="text-align:center;">${check(official)}</td>
-      <td style="text-align:center;"><button class="btn btn-outline btn-sm" onclick="openEvalPanel('${student.id}','${c.id}')">Select</button></td>
-    </tr>`;
+    const withdrawn = (c.reg_status || 'Registered') === 'Withdrawn';
+    return `<div class="student-card" onclick="openEvalPanel('${student.id}','${c.id}')">
+      <div>
+        <div class="student-card-head"><span class="student-card-name" style="font-size:15px;">${c.name}</span></div>
+        <div class="student-card-sub">${c.crn || (c.code || '').replace('CRN ', '')} · ${(c.subject_code || '')} ${(c.course_number || '')} · ${c.course_type || 'Course/Seminar/Topics'}</div>
+      </div>
+      <div class="student-card-meta">
+        <span><b>Instructor:</b> ${instructorsOf(c, faculty?.full_name)}</span>
+        <span><b>Session:</b> ${c.session || 'Full Term'}</span>
+        <span><b>Reg.:</b> ${withdrawn ? '<span style="color:#b93a2b;font-weight:600;">Withdrawn ⚠</span>' : (c.reg_status || 'Registered')}</span>
+      </div>
+      <div class="student-card-foot">
+        <span><b style="color:#7a8494;font-weight:600;">Designation:</b> ${ev ? designationLabel(ev.designation) : '—'}</span>
+        <span class="spacer"></span>
+        <span title="Official (rolled to academic history)">${official ? '✓ Official' : ''}</span>
+      </div>
+    </div>`;
   };
-  const courseRows = regCourses.map(mkCourseRow).join('');
-  const ispRows = ispCourses.map(mkCourseRow).join('');
+  const courseCards = regCourses.map(mkCourseCard).join('');
+  const ispCards = ispCourses.map(mkCourseCard).join('');
 
   const certified = contract.certified;
   mc.innerHTML = `
-    <div style="margin-bottom:12px;">
-      ${appState.contractReturn === 'contract-roster'
-        ? `<button class="btn btn-primary btn-sm" onclick="navToContractRoster('${term}')">← Back to Contract</button>`
-        : `<button class="btn btn-primary btn-sm" onclick="navToAdvisees()">Return to Contract Advisees</button>`}
-      <button class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="navToAdvisee('${student.id}')">All evaluations (by semester / AOC) ›</button>
-    </div>
-    <h3 style="color:#1a3a5c;margin-bottom:2px;">Contract Certification</h3>
-    <div style="color:#1a3a5c;font-weight:600;">${student.full_name} (${student.n_number})</div>
-    <div style="color:#666;font-size:13px;margin-bottom:10px;">${term}</div>
-
-    <div style="overflow-x:auto;">
-      <table class="ses-info">
-        <thead><tr><th>Enrollment Status</th><th>Contract Criteria</th><th>Current Academic Standing</th></tr></thead>
-        <tbody><tr><td>${contract.enrollment_status || 'Enrolled'}</td><td>${contract.contract_criteria || student.contract_criteria || '—'}</td><td>${studentStanding(student.id)}</td></tr></tbody>
-      </table>
+    <div style="font-family:var(--serif);font-size:20px;color:var(--ncf-navy);font-weight:600;">${student.full_name} <span style="font-size:14px;color:#888;font-family:var(--sans);">(${student.n_number})</span></div>
+    <div style="color:#666;font-size:13px;margin-top:2px;">${term}</div>
+    <div class="cc-meta">
+      <span class="cc-meta-item"><b>Enrollment Status:</b> ${contract.enrollment_status || 'Enrolled'}</span>
+      <span class="cc-meta-item"><b>Contract Criteria:</b> ${contract.contract_criteria || student.contract_criteria || '—'}</span>
+      <span class="cc-meta-item"><b>Academic Standing:</b> ${studentStanding(student.id)}</span>
+      <span class="cc-meta-item"><b>Advisor:</b> ${advisor?.full_name || '—'}</span>
     </div>
 
-    <div style="overflow-x:auto;">
-      <table class="ses-table" style="margin-top:4px;">
-        <thead><tr>
-          <th>CRN</th><th>Title</th><th>Type</th><th>Registration Status</th><th>Instructor</th>
-          <th>Session</th><th>Designation</th><th>Official (Rolled)</th><th>Evaluation</th>
-        </tr></thead>
-        <tbody>${courseRows || '<tr><td colspan="9" style="text-align:center;color:#888;padding:14px;">No courses on this contract for the term.</td></tr>'}</tbody>
-      </table>
-    </div>
+    <div style="font-weight:650;color:var(--ncf-navy);font-size:14px;margin:18px 0 8px;">Courses <span style="font-weight:400;color:#888;font-size:12.5px;">— click to read the narrative evaluation</span></div>
+    ${courseCards ? `<div class="roster-cards">${courseCards}</div>` : '<div style="color:#888;padding:10px 0;">No courses on this contract for the term.</div>'}
 
-    ${ispRows ? `
-    <div style="overflow-x:auto;">
-      <div style="font-weight:700;color:#8a6100;font-size:13px;margin:14px 0 4px;">Independent Study Projects <span style="font-weight:400;color:#888;">(January interterm — certified with the Fall contract)</span></div>
-      <table class="ses-table" style="margin-top:2px;background:#fffaf0;">
-        <thead><tr>
-          <th>CRN</th><th>Title</th><th>Type</th><th>Registration Status</th><th>Instructor</th>
-          <th>Session</th><th>Designation</th><th>Official (Rolled)</th><th>Evaluation</th>
-        </tr></thead>
-        <tbody>${ispRows}</tbody>
-      </table>
-    </div>` : ''}
+    ${ispCards ? `
+    <div style="font-weight:700;color:#8a6100;font-size:13px;margin:18px 0 8px;">Independent Study Projects <span style="font-weight:400;color:#888;">(January interterm — certified with the Fall contract)</span></div>
+    <div class="roster-cards">${ispCards}</div>` : ''}
 
-    <div class="card" style="margin-top:18px;">
+    <div class="card" style="margin-top:20px;">
       <div class="card-body">
-        <h3 style="color:#1a3a5c;margin-bottom:2px;">Contract Certification</h3>
-        <div style="color:#1a3a5c;font-weight:600;">${student.full_name} (${student.n_number})</div>
-        <div style="color:#666;font-size:13px;margin:2px 0 10px;">${term}</div>
-        <ul style="font-size:13px;color:#444;line-height:1.9;margin-left:18px;">
-          <li><em>Advisor:</em> ${advisor?.full_name || '—'}</li>
-          <li><em>Enrollment Status:</em> ${contract.enrollment_status || 'Enrolled'}</li>
-          <li><em>Contract Criteria:</em> ${contract.contract_criteria || student.contract_criteria || '—'}</li>
-          <li><em>Designation:</em> ${contractDesignationLabel(contract.designation)}</li>
-          <li><em>Completion Deadline:</em> ${(contract.designation === 'inc' && contract.completion_deadline) ? fmtAttend(contract.completion_deadline) : ''}</li>
-        </ul>
-
-        ${certified ? `<div class="lock-notice">✓ <strong>Certified</strong> on ${new Date(contract.certified_at).toLocaleDateString()}.${contract.banner_pushed ? ' <span class="banner-ok">Pushed to Banner ✓</span>' : ''}</div>` : ''}
-
-        <div class="rte-label private-label" style="margin-top:8px;">Narrative Evaluation for Advising</div>
-        <div class="rte-wrapper${certified ? ' readonly' : ''}" style="margin-top:6px;"><div id="contractEditorContainer"></div></div>
-
-        <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
           <label style="font-size:13px;font-weight:600;">Contract Designation:</label>
           <select class="designation-select" id="contractDesig" ${certified ? 'disabled' : ''} style="max-width:260px;" onchange="toggleContractDeadline()">
             <option value="">— Select —</option>
@@ -3334,12 +3353,14 @@ function renderContractView(mc) {
           <input type="date" class="designation-select" id="contractDeadline" style="max-width:200px;"
                  value="${contract.completion_deadline || ''}" ${certified ? 'disabled' : ''} ${contract.designation === 'inc' ? '' : 'hidden'}>
         </div>
-        <div style="font-size:12px;color:#888;margin-top:4px;">The contract designation can be certified independently of the course evaluations; both push to Banner.</div>
 
-        <div class="btn-group" style="margin-top:14px;">
+        <div class="rte-label private-label">Narrative Evaluation for Advising</div>
+        <div class="rte-wrapper${certified ? ' readonly' : ''}" style="margin-top:6px;"><div id="contractEditorContainer"></div></div>
+
+        <div class="btn-group" style="margin-top:16px;">
           ${certified
             ? `<button class="btn btn-outline" onclick="printContractCertification('${student.id}','${term}')">Print / PDF</button>`
-            : `<button class="btn btn-secondary" onclick="saveContractNarrative('${student.id}')">Save</button>
+            : `<button class="btn btn-primary" onclick="saveContractNarrative('${student.id}')">Save</button>
                <button class="btn btn-success" onclick="certifyContract('${student.id}')">Certify &amp; push to Banner</button>`}
         </div>
       </div>
@@ -3390,6 +3411,11 @@ function certifyContract(studentId) {
     certified: true, certified_at: new Date().toISOString(), banner_pushed: true, banner_pushed_at: new Date().toISOString(),
   }, term);
   bannerPushToast('Contract designation');
+  // Re-render the certification panel (now locked) and refresh the list behind it.
+  const panelBody = document.getElementById('contractPanelBody');
+  if (panelBody && document.getElementById('contractPanel')?.classList.contains('open')) {
+    renderContractView(panelBody);
+  }
   renderMain();
 }
 
@@ -3417,27 +3443,14 @@ async function openEvalPanel(studentId, courseId) {
       <div style="font-size:12.5px;color:#7a8494;">${course?.semester || ''} ${course?.year || ''}${pMeta ? ' · ' + pMeta : ''}</div>
       <div style="font-size:12.5px;color:#7a8494;margin-bottom:10px;">Instructor: ${instructorsOf(course, faculty?.full_name)} · Registration: ${course?.reg_status || '—'}</div>
       <div class="rte-label" style="margin-top:4px;">Course Designation</div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
-        <select class="designation-select" id="panelDesig" style="max-width:240px;">
-          <option value="">— Select —</option>
-          <option value="strong_sat"   ${desig === 'strong_sat' ? 'selected' : ''}>Strong Satisfactory</option>
-          <option value="sat"          ${desig === 'sat' ? 'selected' : ''}>Satisfactory</option>
-          <option value="marginal_sat" ${desig === 'marginal_sat' ? 'selected' : ''}>Marginal Satisfactory</option>
-          <option value="unsat"        ${desig === 'unsat' ? 'selected' : ''}>Unsatisfactory</option>
-          <option value="pass"         ${desig === 'pass' ? 'selected' : ''}>Pass</option>
-          <option value="fail"         ${desig === 'fail' ? 'selected' : ''}>Fail</option>
-          <option value="inc"          ${desig === 'inc' ? 'selected' : ''}>Incomplete</option>
-        </select>
-        <button class="btn btn-primary btn-sm" onclick="savePanelDesignation('${studentId}','${courseId}')">Save &amp; push to Banner</button>
-      </div>
+      <div style="margin-top:4px;">${desig ? designationLabel(desig) : '<span style="color:#888;">—</span>'}</div>
       ${desig === 'unsat' && ev?.last_attend_date ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Last Date of Attendance:</strong> ${fmtAttend(ev.last_attend_date)}</div>` : ''}
       ${desig === 'inc' && ev?.completion_deadline ? `<div style="margin-top:8px;font-size:13px;color:#b8860b;"><strong>Incomplete Extension Deadline:</strong> ${fmtAttend(ev.completion_deadline)}</div>` : ''}
       ${ev?.supp_designation ? `<div style="margin-top:6px;font-size:13px;"><strong>Supplementary Designation (GPA-proxy):</strong> ${ev.supp_designation}</div>` : ''}
       <div class="rte-label" style="margin-top:16px;">Narrative Evaluation for Transcript</div>
       <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${ev?.public_narrative || '<span style="color:#888;">Not written yet.</span>'}</div></div>
       ${privateNarr ? `<div class="rte-label private-label" style="margin-top:16px;">Narrative Evaluation for Advising</div>
-      <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div></div>` : ''}
-      <div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="openFullEvalFromPanel('${studentId}','${courseId}')">Open full evaluation ›</button></div>`;
+      <div class="rte-wrapper readonly" style="margin-top:6px;"><div style="padding:14px;font-size:14px;line-height:1.6;">${privateNarr}</div></div>` : ''}`;
   } catch (e) {
     body.innerHTML = `<div style="color:#c00;">Error: ${e.message}</div>`;
   }
@@ -3660,11 +3673,11 @@ function renderRegistrarPacket(mc) {
     </div>
     <div class="card">
       <div class="card-body">
-        <h3 style="color:#1a3a5c;margin-bottom:2px;">Narrative Packet — ${student.full_name}</h3>
+        <h3 style="color:var(--ncf-navy);margin-bottom:2px;">Narrative Packet — ${student.full_name}</h3>
         <div style="color:#666;font-size:13px;margin-bottom:12px;">${student.n_number} · ${student.year_level} · ${student.aoc || '—'} · ${evals.length} evaluation${evals.length !== 1 ? 's' : ''} on record</div>
 
         <div class="pk-toolbar">
-          <div style="font-size:12px;font-weight:700;color:#1a3a5c;text-transform:uppercase;letter-spacing:.5px;">Include designations</div>
+          <div style="font-size:12px;font-weight:700;color:var(--ncf-navy);text-transform:uppercase;letter-spacing:.5px;">Include designations</div>
           <div class="pk-cats">${catBoxes || '<span style="color:#888;font-size:13px;">No designations recorded.</span>'}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
             <button class="btn btn-outline btn-sm" onclick="packetSelectAll(true)">Select all rows</button>
