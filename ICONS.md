@@ -42,6 +42,8 @@ any item below.
 | ↗ | U+2197 | North-East Arrow | External link (opens academic calendar) |
 | ⚠ | U+26A0 | Warning Sign | Data-mismatch / withdrawn warnings |
 | ▤ | U+25A4 | Square w/ Horizontal Fill | List/menu affordance |
+| ▦ | U+25A6 | Square w/ Orthogonal Crosshatch | "Cards" layout-toggle button |
+| ☰ | U+2630 | Trigram for Heaven | "List" layout-toggle button |
 | × | U+00D7 (`&times;`) | Multiplication Sign | Slide-over panel close button |
 
 The **"Early"** marker is a **plain-text chip** ("Early") styled with CSS — it
