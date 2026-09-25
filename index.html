@@ -529,11 +529,7 @@ h1, h2, h3, .card-header, .login-title, .course-row-title, .eval-info strong { f
         <span class="logo-text">Narrative Evaluations</span>
       </div>
     </div>
-    <div class="topbar-center">
-      <span class="search-icon">&#128269;</span>
-      <input type="text" class="search-input" id="searchInput" placeholder="Search by student name or N-number..." autocomplete="off">
-      <div class="search-results" id="searchResults"></div>
-    </div>
+    <div class="topbar-center"></div>
     <div class="topbar-right">
       <div id="saveStatus" class="save-status"></div>
       <div class="current-user-info">
@@ -1875,6 +1871,7 @@ function navToAdvisees() {
   if (!warnIfDirty()) return;
   destroyEditors();
   appState.viewAsStudentId = null;
+  appState.adviseeSearch = null;
   appState.view = 'advisees-list';
   renderSidebar();
   renderMain();
@@ -2953,9 +2950,7 @@ async function renderAdviseeStudentView(mc) {
   mc.innerHTML = `
     <div class="roster-head" style="margin-bottom:12px;">
       <button class="btn btn-outline btn-sm" onclick="closeAdviseePanel()">← Return to My Advisees</button>
-      <button class="btn btn-primary btn-sm" onclick="navToContract('${s.id}')">Contract Certification ›</button>
     </div>
-    <div style="font-size:12.5px;color:#7a8494;margin-bottom:10px;">Viewing <strong>${s.full_name}</strong>'s record exactly as the student sees it.</div>
     <div id="adviseeStudentInner"></div>`;
   await renderStudentView(document.getElementById('adviseeStudentInner'));
 }
@@ -3013,13 +3008,22 @@ function renderStudentList() {
     (groups[key] = groups[key] || []).push(r);
   }
 
-  // Each term is an accordion section — the current term open, past terms collapsed.
+  // Preserve which term sections are open across re-renders (opening a narrative
+  // re-renders this list; a section the faculty opened must stay open).
+  const openState = {};
+  Object.keys(groups).forEach(key => {
+    const el = document.getElementById('term-' + key.replace(/\s+/g, ''));
+    if (el) openState['term-' + key.replace(/\s+/g, '')] = el.style.display !== 'none';
+  });
+
+  // Each term is an accordion section — the current term open by default, past
+  // terms collapsed, but any section the user opened stays open on re-render.
   let html = '';
   Object.keys(groups).sort(semesterSortDesc).forEach((key, idx) => {
-    const open = idx === 0;   // most-recent term expanded by default
     const bid = 'term-' + key.replace(/\s+/g, '');
-    let body = studentContractRow(u.student_id, key);
-    body += '<div class="course-list class-indent">';
+    const open = (bid in openState) ? openState[bid] : (idx === 0);
+    let body = '<div class="course-list class-indent">';
+    body += studentContractRow(u.student_id, key);
     for (const { course, ev } of groups[key]) body += studentCourseRow(course, ev);
     body += '</div>';
     html += `
@@ -3076,18 +3080,31 @@ function studentCourseRow(course, ev) {
     </div>`;
 }
 
-// The advisor's contract certification for a given term, shown as a row.
+// The contract certification for a given term, shown as a row among the classes.
+// A student sees only a certified contract (read-only); an advisor viewing an
+// advisee sees it whether or not it is certified, and can open / certify it.
 function studentContractRow(studentId, term) {
   const contract = getContract(studentId, term);
-  if (!contract.certified) return '';   // only show certified contracts
+  const isAdvisor = !!appState.viewAsStudentId;
+  if (!contract.certified && !isAdvisor) return '';   // students see only certified contracts
   const advisor = USE_DEMO ? demoData.profiles.find(p => p.id === demoData.students.find(s => s.id === studentId)?.advisor_id) : null;
   const criteriaLine = contract.contract_criteria
     ? `<div class="course-row-inst"><span style="color:#7a8494;">Contract Criteria:</span> ${contract.contract_criteria}</div>` : '';
   const enrollLine = `<span style="color:#7a8494;">Enrollment Status:</span> ${contract.enrollment_status || 'Enrolled'}`;
-  const unread = !isNarrativeRead('contract:' + studentId + ':' + term);
+  const unread = contract.certified && !isNarrativeRead('contract:' + studentId + ':' + term);
   const desig = contractDesignationLabel(contract.designation);
   const deadline = (contract.designation === 'inc' && contract.completion_deadline)
     ? `<div class="row-deadline">Completion Deadline: <strong>${fmtAttend(contract.completion_deadline)}</strong></div>` : '';
+  const statusChip = contract.certified
+    ? '<span class="banner-ok">Certified</span>'
+    : '<span class="status-badge status-not-started">Not Certified</span>';
+  const desigChip = contract.designation
+    ? `<div class="course-row-desig">${contract.designation === 'inc' ? '<span class="desig-badge desig-inc">Incomplete</span>' : `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : 'desig-unsat'}">${desig}</span>`}</div>`
+    : '';
+  // Advisor opens the editable certification; a student opens a read-only view.
+  const action = isAdvisor
+    ? `<button class="btn btn-primary btn-sm" onclick="navToContract('${studentId}',{term:'${term}'})">${contract.certified ? 'Open certification' : 'Certify'}</button>`
+    : `<button class="btn btn-primary btn-sm" onclick="openStudentContract('${term}')">View certification</button>`;
   return `
     <div class="course-row contract-row${unread ? ' course-row-unread' : ''}">
       <div class="course-row-main">
@@ -3098,9 +3115,9 @@ function studentContractRow(studentId, term) {
         ${deadline}
       </div>
       <div class="course-row-side">
-        <span class="banner-ok">Certified</span>
-        <div class="course-row-desig">${contract.designation === 'inc' ? '<span class="desig-badge desig-inc">Incomplete</span>' : `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : 'desig-unsat'}">${desig}</span>`}</div>
-        <div><button class="btn btn-primary btn-sm" onclick="openStudentContract('${term}')">View certification</button></div>
+        ${statusChip}
+        ${desigChip}
+        <div>${action}</div>
       </div>
     </div>`;
 }
@@ -3394,7 +3411,26 @@ async function renderAdviseesList(mc) {
     });
     const seniors = advisees.filter(s => s.year_level === 'Fourth Year').length;
     const anyEarly = advisees.some(s => s.year_level === 'Fourth Year' || studentStanding(s.id) === 'Academic Probation');
+    const search = appState.adviseeSearch || { mode: 'student', q: '', term: CURRENT_TERM };
+    const termOpts = [...new Set(demoData.courses.map(c => `${c.semester} ${c.year}`))].filter(t => t.split(' ')[0] !== 'January').sort(semesterSortDesc);
     mc.innerHTML = `
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-body">
+          <div style="font-weight:650;color:var(--ncf-navy);margin-bottom:8px;">Search</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <select class="filter-select" id="advSearchMode" onchange="applyAdviseeSearch()">
+              <option value="student"${search.mode === 'student' ? ' selected' : ''}>Student</option>
+              <option value="advisor"${search.mode === 'advisor' ? ' selected' : ''}>Advisor</option>
+            </select>
+            <input type="text" class="filter-select" id="advSearchQ" placeholder="Last name or ID number…" value="${(search.q || '').replace(/"/g, '&quot;')}" oninput="applyAdviseeSearch()" style="min-width:220px;">
+            <select class="filter-select" id="advSearchTerm" onchange="applyAdviseeSearch()"${search.mode === 'advisor' ? '' : ' style="display:none;"'}>
+              ${termOpts.map(t => `<option value="${t}"${t === search.term ? ' selected' : ''}>${t}</option>`).join('')}
+            </select>
+          </div>
+          <div style="font-size:11.5px;color:#888;margin-top:6px;">Search a <strong>student</strong> by last name or ID, or an <strong>advisor</strong> by last name or ID and term.</div>
+          <div id="advSearchResults" style="margin-top:10px;"></div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-body">
           <h3 style="color:var(--ncf-navy);margin-bottom:2px;">${u.full_name} — ${CURRENT_TERM} Advisees</h3>
@@ -3410,9 +3446,59 @@ async function renderAdviseesList(mc) {
             : '<div style="text-align:center;color:#888;padding:20px;">No advisees assigned.</div>'}
         </div>
       </div>`;
+    if (search.q) setTimeout(applyAdviseeSearch, 0);   // restore results after a re-render
   } catch (e) {
     mc.innerHTML = `<div class="card"><div class="card-body" style="color:#c00;">Error loading advisees: ${e.message}</div></div>`;
   }
+}
+
+// Compact result row → opens that student's own view (slide-over).
+function searchStudentRow(s, term) {
+  const contract = getContract(s.id, term || CURRENT_TERM);
+  const cert = contract.certified ? '<span class="banner-ok">Certified</span>' : '<span class="status-badge status-not-started">Pending</span>';
+  return `<div class="course-row course-row-click" onclick="navToAdvisee('${s.id}')">
+    <div class="course-row-main">
+      <div class="course-row-title">${s.full_name}</div>
+      <div class="course-row-meta">${s.n_number} · ${s.year_level} · ${s.aoc || '—'}</div>
+    </div>
+    <div class="person-row-side">${cert}</div>
+  </div>`;
+}
+
+// My Advisees search — student (last name / ID) or advisor (last name / ID + term).
+function applyAdviseeSearch() {
+  const mode = document.getElementById('advSearchMode')?.value || 'student';
+  const q = (document.getElementById('advSearchQ')?.value || '').trim().toLowerCase();
+  const term = document.getElementById('advSearchTerm')?.value || CURRENT_TERM;
+  appState.adviseeSearch = { mode, q, term };
+  const termSel = document.getElementById('advSearchTerm');
+  if (termSel) termSel.style.display = (mode === 'advisor') ? '' : 'none';
+  const box = document.getElementById('advSearchResults');
+  if (!box) return;
+  if (q.length < 2) { box.innerHTML = q ? '<div style="color:#888;font-size:12.5px;">Type at least 2 characters…</div>' : ''; return; }
+  const hitStudent = s => nameSortKey(s.full_name).includes(q) || s.full_name.toLowerCase().includes(q) || (s.n_number || '').toLowerCase().includes(q);
+
+  if (mode === 'student') {
+    const matches = demoData.students.filter(hitStudent).sort(byLastName).slice(0, 25);
+    box.innerHTML = matches.length
+      ? `<div class="course-list">${matches.map(s => searchStudentRow(s, term)).join('')}</div>`
+      : '<div style="color:#888;font-size:12.5px;">No students found.</div>';
+    return;
+  }
+
+  // Advisor mode — match advisor profiles by last name or id, list their advisees for the term.
+  const advs = demoData.profiles.filter(p => p.is_advisor &&
+    (nameSortKey(p.full_name).includes(q) || p.full_name.toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q)));
+  if (!advs.length) { box.innerHTML = '<div style="color:#888;font-size:12.5px;">No advisors found.</div>'; return; }
+  box.innerHTML = advs.slice(0, 8).map(a => {
+    const adv = demoData.students.filter(s => s.advisor_id === a.id).sort(byLastName);
+    const rows = adv.length ? adv.map(s => searchStudentRow(s, term)).join('')
+      : '<div style="color:#888;font-size:12.5px;padding:6px 0;">No advisees.</div>';
+    return `<div style="margin-bottom:12px;">
+      <div style="font-weight:600;color:var(--ncf-navy);font-size:13px;margin-bottom:4px;">${a.full_name} <span style="font-weight:400;color:#888;">· ${a.id} · ${term} · ${adv.length} advisee${adv.length !== 1 ? 's' : ''}</span></div>
+      <div class="course-list">${rows}</div>
+    </div>`;
+  }).join('');
 }
 
 // ── Contract Certification page (SES-style) ──
