@@ -1637,6 +1637,15 @@ function nameSortKey(fullName) {
 }
 function byLastName(a, b) { return nameSortKey(a.full_name).localeCompare(nameSortKey(b.full_name)); }
 
+// Display a person "Surname, First" (NCF rosters list the surname first).
+function lastNameFirst(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/);
+  if (parts.length < 2) return fullName || '';
+  const last = parts[parts.length - 1];
+  const first = parts.slice(0, -1).join(' ');
+  return `${last}, ${first}`;
+}
+
 // Whose narrative view is shown: an advisor may open an advisee's exact student
 // view (viewAsStudentId); otherwise it is the logged-in student themselves.
 function svUser() {
@@ -1801,7 +1810,7 @@ async function renderSidebar() {
       }
       // The term selector only applies inside Narrative Evaluations; elsewhere
       // (e.g. My Advisees) it is grayed out and inactive.
-      const neActive = (appState.view === 'faculty-classes' || appState.view === 'course' || appState.view === 'evaluation');
+      const neActive = (appState.view === 'faculty-classes' || appState.view === 'course' || appState.view === 'evaluation' || appState.view === 'contract-roster');
       html += tab('Narrative Evaluations', neActive, 'navToFacultyTerm(appState.facultyTerm)');
       if (terms.length > 1) {
         const opts = terms.map(t => `<option value="${t}"${t === appState.facultyTerm ? ' selected' : ''}>${t}</option>`).join('');
@@ -1812,7 +1821,7 @@ async function renderSidebar() {
       const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisee-view' || appState.view === 'advisor-student');
       html += tab('My Advisees', adviseesActive, 'navToAdvisees()');
     }
-    html += tab('Browse Evaluations', appState.view === 'browse', 'navToBrowse()');
+    // Browse Evaluations tab hidden — search now lives in the Narrative Evaluations view.
   }
 
   if (u.is_advisor && u.role !== 'faculty') {
@@ -2030,11 +2039,33 @@ async function renderFacultyClasses(mc) {
     const all = await Data.getMyCourses(u.id);
     const courses = all.filter(c => `${c.semester} ${c.year}` === term)
       .sort((a, b) => (a.subject_code || '').localeCompare(b.subject_code || '') || a.name.localeCompare(b.name));
-    // The separate "Contract" card was removed — advisees now live under the
-    // "My Advisees" tab (the contract roster was a duplicate of that list).
+    // A "Contract" card leads the list when this instructor advises anyone — it
+    // opens the contract roster where certifications are completed.
     const advisees = USE_DEMO ? demoData.students.filter(s => s.advisor_id === u.id) : [];
-    const cards = courses.map(facultyClassCard).join('');
+    const contractCard = advisees.length ? facultyContractCard(term, u, advisees) : '';
+    const cards = contractCard + courses.map(facultyClassCard).join('');
+    // Search by term + instructor — prototype placeholder (behavior defined in the
+    // specifications document; not wired up).
+    const termOpts = [...new Set(demoData.courses.map(c => `${c.semester} ${c.year}`))].filter(t => t.split(' ')[0] !== 'January').sort(semesterSortDesc);
+    const instrOpts = [...new Set(demoData.profiles.filter(p => p.role === 'faculty').map(p => p.full_name))].sort((a, b) => lastNameFirst(a).localeCompare(lastNameFirst(b)));
     mc.innerHTML = `
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-body">
+          <div style="font-weight:650;color:var(--ncf-navy);margin-bottom:8px;">Search</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <select class="filter-select" id="neSearchTerm">
+              <option value="">Term…</option>
+              ${termOpts.map(t => `<option value="${t}"${t === term ? ' selected' : ''}>${t}</option>`).join('')}
+            </select>
+            <select class="filter-select" id="neSearchInstr">
+              <option value="">Instructor…</option>
+              ${instrOpts.map(n => `<option value="${n}">${lastNameFirst(n)}</option>`).join('')}
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="showToast('Search will be defined in the specifications document.', '#6c757d')">Search</button>
+          </div>
+          <div style="font-size:11.5px;color:#888;margin-top:6px;">Requires a term and an instructor. (Prototype placeholder — behavior defined in the specifications document.)</div>
+        </div>
+      </div>
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
           <h3 style="margin-bottom:4px;">${term} · Classes</h3>
@@ -2155,7 +2186,7 @@ async function renderCourseView(mc) {
       if (grad || probation) anyEarly = true;
       cards += `<div class="student-card${grad ? ' is-grad' : ''}" onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
         <div>
-          <div class="student-card-head"><span class="student-card-name">${s.full_name}</span>${studentIcons(grad, probation)}</div>
+          <div class="student-card-head"><span class="student-card-name">${lastNameFirst(s.full_name)}</span>${studentIcons(grad, probation)}</div>
           <div class="student-card-sub">${s.n_number}${preferred ? ` · “${preferred}”` : ''}</div>
         </div>
         <div class="student-card-meta">
@@ -2173,7 +2204,7 @@ async function renderCourseView(mc) {
       </div>`;
       rows += `<div class="course-row course-row-click" ${grad ? 'style="box-shadow:inset 4px 0 0 var(--ncf-gold);"' : ''} onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
         <div class="course-row-main">
-          <div class="course-row-title">${s.full_name}${studentIcons(grad, probation)}</div>
+          <div class="course-row-title">${lastNameFirst(s.full_name)}${studentIcons(grad, probation)}</div>
           <div class="course-row-meta">${s.n_number}${preferred ? ` · “${preferred}”` : ''} · Advisor: ${advisor} · Expected Grad: ${gradDateFor(s.year_level)} · ${credits} credits</div>
           <div class="course-row-inst">${standingBadge}</div>
         </div>
@@ -2229,7 +2260,7 @@ function renderContractRoster(mc) {
   const u = appState.currentUser;
   const term = appState.facultyTerm || CURRENT_TERM;
   const advisees = (USE_DEMO ? demoData.students.filter(s => s.advisor_id === u.id) : [])
-    .slice().sort((a, b) => a.full_name.localeCompare(b.full_name));   // alphabetical
+    .slice().sort(byLastName);   // last name, then first
   let anyEarly = false;
 
   const cards = advisees.map(s => {
@@ -2256,7 +2287,7 @@ function renderContractRoster(mc) {
     const credits = demoData.evaluations.filter(e => e.student_id === s.id && e.status === 'submitted').length * 3;
     return `<div class="student-card${grad ? ' is-grad' : ''}" onclick="navToContract('${s.id}',{term:'${term}',from:'contract-roster'})">
       <div>
-        <div class="student-card-head"><span class="student-card-name">${s.full_name}</span>${studentIcons(grad, probation)}</div>
+        <div class="student-card-head"><span class="student-card-name">${lastNameFirst(s.full_name)}</span>${studentIcons(grad, probation)}</div>
         <div class="student-card-sub">${s.n_number}${preferred ? ` · “${preferred}”` : ''} · Advisor: ${advisorCell}</div>
       </div>
       <div class="student-card-meta">
@@ -2946,7 +2977,7 @@ async function renderAdviseeStudentView(mc) {
   const s = USE_DEMO ? demoData.students.find(x => x.id === appState.viewAsStudentId) : null;
   if (!s) { mc.innerHTML = '<div class="loading">Student not found.</div>'; return; }
   const title = document.getElementById('adviseePanelTitle');
-  if (title) title.textContent = s.full_name;
+  if (title) title.textContent = lastNameFirst(s.full_name);
   mc.innerHTML = `
     <div class="roster-head" style="margin-bottom:12px;">
       <button class="btn btn-outline btn-sm" onclick="closeAdviseePanel()">← Return to My Advisees</button>
@@ -3101,14 +3132,15 @@ function studentContractRow(studentId, term) {
   const desigChip = contract.designation
     ? `<div class="course-row-desig">${contract.designation === 'inc' ? '<span class="desig-badge desig-inc">Incomplete</span>' : `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : 'desig-unsat'}">${desig}</span>`}</div>`
     : '';
-  // Advisor opens the editable certification; a student opens a read-only view.
-  const action = isAdvisor
-    ? `<button class="btn btn-primary btn-sm" onclick="navToContract('${studentId}',{term:'${term}'})">${contract.certified ? 'Open certification' : 'Certify'}</button>`
-    : `<button class="btn btn-primary btn-sm" onclick="openStudentContract('${term}')">View certification</button>`;
+  // View-only here (for both student and advisor). Certifications are completed
+  // in the Narrative Evaluations tab, inside the Contract course.
+  const action = contract.certified
+    ? `<button class="btn btn-primary btn-sm" onclick="openStudentContract('${term}')">View Certification</button>`
+    : '<span class="pill-muted">Not yet certified</span>';
   return `
     <div class="course-row contract-row${unread ? ' course-row-unread' : ''}">
       <div class="course-row-main">
-        <div class="course-row-title">Contract Certification${unread ? ' <span class="unread-dot" title="Unread certification"></span>' : ''}</div>
+        <div class="course-row-title">Contract${unread ? ' <span class="unread-dot" title="Unread certification"></span>' : ''}</div>
         <div class="course-row-meta">${term} · Advisor: ${advisor?.full_name || '—'}</div>
         <div class="course-row-inst">${enrollLine}</div>
         ${criteriaLine}
@@ -3382,7 +3414,7 @@ async function renderAdviseesList(mc) {
       const certBadge = contract.certified ? '<span class="status-badge status-submitted">Certified</span>' : '<span class="status-badge status-not-started">Pending</span>';
       cards += `<div class="student-card${isSenior ? ' is-grad' : ''}" onclick="navToAdvisee('${s.id}')">
         <div>
-          <div class="student-card-head"><span class="student-card-name">${s.full_name}</span>${studentIcons(isSenior, probation)}</div>
+          <div class="student-card-head"><span class="student-card-name">${lastNameFirst(s.full_name)}</span>${studentIcons(isSenior, probation)}</div>
           <div class="student-card-sub">${s.n_number}${studentHasISP(s.id) ? ' · has ISP' : ''} · ${advisorLine}</div>
         </div>
         <div class="student-card-meta">
@@ -3402,7 +3434,7 @@ async function renderAdviseesList(mc) {
       </div>`;
       rows += `<div class="course-row course-row-click" ${isSenior ? 'style="box-shadow:inset 4px 0 0 var(--ncf-gold);"' : ''} onclick="navToAdvisee('${s.id}')">
         <div class="course-row-main">
-          <div class="course-row-title">${s.full_name}${studentIcons(isSenior, probation)}</div>
+          <div class="course-row-title">${lastNameFirst(s.full_name)}${studentIcons(isSenior, probation)}</div>
           <div class="course-row-meta">${s.n_number}${studentHasISP(s.id) ? ' · has ISP' : ''} · ${advisorLine} · Expected Grad: ${gradDateFor(s.year_level)}</div>
           <div class="course-row-inst">${probation ? '<span class="probation">Academic Probation</span>' : 'Good Standing'} · Criteria: ${s.contract_criteria || '—'} · ${allEvals}</div>
         </div>
@@ -3458,7 +3490,7 @@ function searchStudentRow(s, term) {
   const cert = contract.certified ? '<span class="banner-ok">Certified</span>' : '<span class="status-badge status-not-started">Pending</span>';
   return `<div class="course-row course-row-click" onclick="navToAdvisee('${s.id}')">
     <div class="course-row-main">
-      <div class="course-row-title">${s.full_name}</div>
+      <div class="course-row-title">${lastNameFirst(s.full_name)}</div>
       <div class="course-row-meta">${s.n_number} · ${s.year_level} · ${s.aoc || '—'}</div>
     </div>
     <div class="person-row-side">${cert}</div>
@@ -3540,7 +3572,7 @@ function renderContractView(mc) {
 
   const certified = contract.certified;
   mc.innerHTML = `
-    <div style="font-family:var(--sans);font-size:20px;color:var(--ncf-navy);font-weight:600;">${student.full_name} <span style="font-size:14px;color:#888;font-family:var(--sans);">(${student.n_number})</span></div>
+    <div style="font-family:var(--sans);font-size:20px;color:var(--ncf-navy);font-weight:600;">${lastNameFirst(student.full_name)} <span style="font-size:14px;color:#888;font-family:var(--sans);">(${student.n_number})</span></div>
     <div style="color:#666;font-size:13px;margin-top:2px;">${term}</div>
     <div class="cc-meta">
       <span class="cc-meta-item"><b>Enrollment Status:</b> ${contract.enrollment_status || 'Enrolled'}</span>

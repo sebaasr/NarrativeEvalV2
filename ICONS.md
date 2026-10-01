@@ -104,3 +104,39 @@ keep as spares — same NCF-brand license applies): `ncf-horiz-color.png`,
   **(b) the Quill editor's built-in SVG icons** (BSD-3-Clause, already
   permissive).
 - **Fonts** (EB Garamond, Inter) are **SIL OFL 1.1** — free for web use.
+
+---
+
+## 6. Critical theming & format (for the specifications document)
+
+SIG can inspect every element in the prototype, so this lists only the
+**critical** values that must be specified rather than inferred. Everything is
+defined as CSS custom properties in `:root` at the top of `index.html`.
+
+**Core palette (from the NCF Brand Guidelines, July 2023):**
+
+| Token | Value | Pantone | Used for |
+|-------|-------|---------|----------|
+| `--ncf-navy` | `#202944` | PMS 533 | **Header bar background**, headings, active nav underline, primary accents |
+| `--ncf-deep` | `#041E42` | PMS 282 C | Deep-navy accents, primary-button text on gold |
+| `--ncf-gold` | `#B3A369` | PMS 4515 C | Primary buttons, active/completed badges |
+| `--ncf-gold-dk` | `#8a7d45` | — | Gold hover/!border |
+| `--ncf-content` | `#F7F4EF` | — | App background (warm off-white) |
+| `--ncf-surface` | `#ffffff` | — | Card surfaces |
+| `--ncf-amber-bg` | `#f6efd8` | — | Academic-probation highlight |
+
+**Critical named elements:**
+
+| Element | Spec |
+|---------|------|
+| Header/top bar | background `--ncf-navy` (`#202944`); logo `assets/ncf-horiz-white.png` at 38px tall; product wordmark in white |
+| Primary button | background `--ncf-gold`, text `--ncf-deep` |
+| Active nav tab | gold underline (`--ncf-gold`) |
+| Body / UI type | **Inter** (sans), 14px base |
+| Headings | **EB Garamond** was replaced by Inter on-screen; serif reserved for printed documents (the print document uses Arial) |
+| Printed evaluation document | Arial/Helvetica, black on white (official-record format) |
+
+**Note:** NCF's official typefaces (Vendetta, American Captain, BSN 520) are
+Adobe/foundry-licensed and are **not** used; the web app uses the open-licensed
+substitutes above. On-screen typography is sans-serif by design decision
+(serif reserved for printed materials).
