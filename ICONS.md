@@ -9,9 +9,41 @@ asset used in the dashboard, where it comes from, and its licensing terms.
 
 ---
 
-## 1. UI icons — Unicode characters (NOT bundled icon files)
+## 0. Primary UI icons — Feather line-icon set (embedded SVG)
 
-Every "icon" in the interface is a **standard Unicode code point** written
+The prominent interface icons — the **navigation bar** (Narrative Evaluations,
+My Advisees, All Evaluations, FERPA Access Log), plus the **graduation cap**,
+**printer**, **eye** (read indicator), **search**, and **warning triangle** —
+are **line icons from the Feather icon set**, embedded as **inline SVG** in
+`index.html` (see the `ICON_PATHS` map / `icon()` helper). They render in the
+page's own navy/gold colors via `currentColor`.
+
+| Icon | Feather name | Used for |
+|------|--------------|----------|
+| Document | `file-text` | "Narrative Evaluations" / "My Narrative Evaluations" nav tab |
+| People | `users` | "My Advisees" nav tab |
+| Layers | `layers` | "All Evaluations" (registrar) nav tab |
+| Shield | `shield` | "FERPA Access Log" nav tab |
+| Graduation cap | `graduation-cap` | Expected-graduate marker on roster/contract cards |
+| Printer | `printer` | "Print All Evaluations" button |
+| Eye | `eye` | "Read" indicator (student opened the evaluation) |
+| Warning triangle | `alert-triangle` | Advisor-of-record ≠ instructor flag (red) |
+| Magnifier | `search` | Search section headings |
+
+- **Source:** Feather Icons — https://feathericons.com — v4.x path data.
+- **License:** **MIT License** (© 2013–present Cole Bemis). Free for commercial
+  use, modification, and redistribution; the only requirement is to retain the
+  MIT copyright/permission notice (kept on file with this repo). SIG may use and
+  modify them freely.
+- **No external files / no CDN:** the SVG path data is embedded directly in the
+  page, so nothing is fetched at runtime and there is no third-party dependency.
+
+---
+
+## 1. Minor glyphs — Unicode characters (NOT bundled icon files)
+
+The remaining small glyphs (carets, check marks, arrows, the unread dot) are
+**standard Unicode code points** written
 directly into the HTML (either as a numeric character reference like
 `&#127891;` or as the literal character). **The app does not ship, embed, or
 distribute any icon image, SVG, or icon-font file for these.** Each glyph is
@@ -28,19 +60,14 @@ any item below.
 
 | Glyph | Code point | Name | Used for |
 |-------|-----------|------|----------|
-| 🎓 | U+1F393 (`&#127891;`) | Graduation Cap | Expected-graduate marker on roster/contract cards |
-| 🖨 | U+1F5A8 (`&#128424;`) | Printer | "Print All Evaluations" button |
-| 🔍 | U+1F50D (`&#128269;`) | Magnifying Glass | Browse / search affordance |
-| 👁 | U+1F441 (`&#128065;`) | Eye | "Read" indicator (student opened eval) |
-| ⚑ | U+2691 (`&#9873;`) | Black Flag | Flag column |
 | ▸ | U+25B8 (`&#9656;`) | Right-Pointing Triangle | Collapsible-section caret |
 | ● | U+25CF (`&#9679;`) | Black Circle | "Unread" dot |
-| ✓ | U+2713 | Check Mark | "Official / rolled", certified, confirmations |
+| ✓ | U+2713 | Check Mark | Certified / confirmations |
 | ✗ | U+2717 | Ballot X | Negative/incomplete marker |
 | → | U+2192 | Rightwards Arrow | "Continue / open" affordances |
 | ← | U+2190 | Leftwards Arrow | "Back" buttons |
 | ↗ | U+2197 | North-East Arrow | External link (opens academic calendar) |
-| ⚠ | U+26A0 | Warning Sign | Data-mismatch / withdrawn warnings |
+| ⚠ | U+26A0 | Warning Sign | Inline "Withdrawn" / amendment text warnings |
 | ▤ | U+25A4 | Square w/ Horizontal Fill | List/menu affordance |
 | ▦ | U+25A6 | Square w/ Orthogonal Crosshatch | "Cards" layout-toggle button |
 | ☰ | U+2630 | Trigram for Heaven | "List" layout-toggle button |
@@ -96,9 +123,10 @@ keep as spares — same NCF-brand license applies): `ncf-horiz-color.png`,
 
 ## 5. Summary for SIG
 
-- **No purchased or third-party-licensed icon set is used.** All UI icons are
-  open Unicode code points rendered by the viewer's OS font — nothing to
-  license or hand over.
+- **Primary UI icons are the Feather icon set (MIT)**, embedded as inline SVG —
+  free for commercial use and redistribution; no purchase, no CDN, no external
+  files. Minor glyphs (carets, checks, arrows) remain open Unicode code points
+  rendered by the viewer's OS font.
 - **Only licensed visual assets are (a) the NCF logo PNGs** (institutional
   brand asset — needs a permission letter from NCF Comms & Marketing) and
   **(b) the Quill editor's built-in SVG icons** (BSD-3-Clause, already

@@ -153,13 +153,21 @@ h1, h2, h3, .card-header, .login-title, .course-row-title, .eval-info strong { f
   box-shadow: 0 1px 3px rgba(23,35,58,.04);
 }
 .navtab {
-  display: flex; align-items: center; gap: 8px; padding: 0 18px; height: 49px;
-  cursor: pointer; font-size: 14px; font-weight: 600; color: #566;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 6px 20px; min-height: 60px;
+  cursor: pointer; font-size: 12px; font-weight: 600; color: #566;
   border: none; border-bottom: 3px solid transparent; background: none;
   white-space: nowrap; font-family: inherit;
 }
+.navtab .icon { color: #7a8494; }
 .navtab:hover { color: var(--ncf-navy); background: #f5f8ff; }
+.navtab:hover .icon { color: var(--ncf-navy); }
 .navtab.active { color: var(--ncf-navy); border-bottom-color: var(--ncf-gold); border-bottom-width: 3px; }
+.navtab.active .icon { color: var(--ncf-navy); }
+.icon { display: inline-block; vertical-align: middle; flex: 0 0 auto; }
+.grad-cap { color: var(--ncf-gold-dk); }
+.grad-cap .icon { vertical-align: -3px; }
+.advisor-warn, .advisor-warn .icon { color: #c0392b; vertical-align: -2px; }
 .navbar-spacer { flex: 1 1 auto; }
 .navbar-term { display: flex; align-items: center; padding: 8px 6px 8px 0; }
 .navbar-term select { min-width: 130px; }
@@ -1646,6 +1654,25 @@ function lastNameFirst(fullName) {
   return `${last}, ${first}`;
 }
 
+// Inline line icons (Feather icon set, MIT-licensed) — a professional alternative
+// to emoji. Each renders at currentColor so it inherits the surrounding text color.
+const ICON_PATHS = {
+  'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+  'users': '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'layers': '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  'shield': '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  'printer': '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+  'eye': '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  'graduation-cap': '<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/>',
+  'alert-triangle': '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  'search': '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+};
+function icon(name, size = 20) {
+  const p = ICON_PATHS[name];
+  if (!p) return '';
+  return `<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+}
+
 // Whose narrative view is shown: an advisor may open an advisee's exact student
 // view (viewAsStudentId); otherwise it is the logged-in student themselves.
 function svUser() {
@@ -1788,14 +1815,14 @@ async function renderSidebar() {
   const u = appState.currentUser;
   if (!u) return;
   const canViewAll = u.role === 'registrar' || u.role === 'admin' || u.role === 'po_office';
-  const tab = (label, active, onclick) => `<button class="navtab${active ? ' active' : ''}" onclick="${onclick}">${label}</button>`;
+  const tab = (label, active, onclick, ic) => `<button class="navtab${active ? ' active' : ''}" onclick="${onclick}">${ic ? icon(ic, 22) : ''}<span>${label}</span></button>`;
 
   let html = '';
 
   if (u.role === 'student') {
-    html += tab('My Narrative Evaluations', ['student-home', 'default', 'welcome'].includes(appState.view), 'navToStudentHome()');
+    html += tab('My Narrative Evaluations', ['student-home', 'default', 'welcome'].includes(appState.view), 'navToStudentHome()', 'file-text');
     html += '<div class="navbar-spacer"></div>';
-    html += `<div class="navbar-right"><button class="btn btn-primary btn-sm" onclick="printAllEvaluations()">&#128424; Print All Evaluations</button></div>`;
+    html += `<div class="navbar-right"><button class="btn btn-primary btn-sm" onclick="printAllEvaluations()">${icon('printer', 16)} Print All Evaluations</button></div>`;
   }
 
   if (u.role === 'faculty' || u.role === 'admin') {
@@ -1811,7 +1838,7 @@ async function renderSidebar() {
       // The term selector only applies inside Narrative Evaluations; elsewhere
       // (e.g. My Advisees) it is grayed out and inactive.
       const neActive = (appState.view === 'faculty-classes' || appState.view === 'course' || appState.view === 'evaluation' || appState.view === 'contract-roster');
-      html += tab('Narrative Evaluations', neActive, 'navToFacultyTerm(appState.facultyTerm)');
+      html += tab('Narrative Evaluations', neActive, 'navToFacultyTerm(appState.facultyTerm)', 'file-text');
       if (terms.length > 1) {
         const opts = terms.map(t => `<option value="${t}"${t === appState.facultyTerm ? ' selected' : ''}>${t}</option>`).join('');
         html += `<div class="navbar-term"><select class="filter-select" onchange="navToFacultyTerm(this.value)"${neActive ? '' : ' disabled title="Term applies within Narrative Evaluations only" style="opacity:.5;cursor:not-allowed;"'}>${opts}</select></div>`;
@@ -1819,19 +1846,19 @@ async function renderSidebar() {
     } catch(e) { /* no courses */ }
     if (u.is_advisor) {
       const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisee-view' || appState.view === 'advisor-student');
-      html += tab('My Advisees', adviseesActive, 'navToAdvisees()');
+      html += tab('My Advisees', adviseesActive, 'navToAdvisees()', 'users');
     }
     // Browse Evaluations tab hidden — search now lives in the Narrative Evaluations view.
   }
 
   if (u.is_advisor && u.role !== 'faculty') {
     const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisee-view' || appState.view === 'advisor-student');
-    html += tab('My Advisees', adviseesActive, 'navToAdvisees()');
+    html += tab('My Advisees', adviseesActive, 'navToAdvisees()', 'users');
   }
 
   if (canViewAll) {
-    html += tab('All Evaluations', appState.view === 'registrar' || appState.view === 'reg-packet', 'navToRegistrar()');
-    html += tab('FERPA Access Log', appState.view === 'access-log', 'navToAccessLog()');
+    html += tab('All Evaluations', appState.view === 'registrar' || appState.view === 'reg-packet', 'navToRegistrar()', 'layers');
+    html += tab('FERPA Access Log', appState.view === 'access-log', 'navToAccessLog()', 'shield');
   }
 
   sb.innerHTML = html;
@@ -2051,7 +2078,7 @@ async function renderFacultyClasses(mc) {
     mc.innerHTML = `
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
-          <div style="font-weight:650;color:var(--ncf-navy);margin-bottom:8px;">Search</div>
+          <div style="font-weight:650;color:var(--ncf-navy);margin-bottom:8px;display:flex;align-items:center;gap:7px;">${icon('search', 16)} Search</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <select class="filter-select" id="neSearchTerm">
               <option value="">Term…</option>
@@ -2117,7 +2144,7 @@ function facultyContractCard(term, advisor, advisees) {
 function readIndicator(ev) {
   if (!ev || ev.status !== 'submitted') return '<span style="color:#ccc;">—</span>';
   return ev.read_by_student
-    ? '<span class="read-yes" title="The student has opened this evaluation">&#128065; Read</span>'
+    ? `<span class="read-yes" title="The student has opened this evaluation">${icon('eye', 14)} Read</span>`
     : '<span class="read-no" title="The student has not opened this evaluation yet">&#9679; Unread</span>';
 }
 
@@ -2143,7 +2170,7 @@ function courseHeadingBlock(course, facultyName) {
 // AND students on academic probation (both need earlier attention).
 function studentIcons(grad, probation) {
   let s = '';
-  if (grad) s += ` <span class="grad-cap" title="Scheduled to graduate this year">&#127891;</span>`;
+  if (grad) s += ` <span class="grad-cap" title="Scheduled to graduate this year">${icon('graduation-cap', 16)}</span>`;
   if (grad || probation) {
     const why = grad ? 'scheduled to graduate' : 'academic probation';
     s += ` <span class="early-chip" title="Evaluation due earlier — ${why}">Early</span>`;
@@ -2198,8 +2225,7 @@ async function renderCourseView(mc) {
         <div class="student-card-foot">
           ${desig}
           <span class="spacer"></span>
-          <span title="Official (rolled to academic history)">${official ? '✓ Official' : ''}</span>
-          ${status}
+                    ${status}
         </div>
       </div>`;
       rows += `<div class="course-row course-row-click" ${grad ? 'style="box-shadow:inset 4px 0 0 var(--ncf-gold);"' : ''} onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
@@ -2208,7 +2234,7 @@ async function renderCourseView(mc) {
           <div class="course-row-meta">${s.n_number}${preferred ? ` · “${preferred}”` : ''} · Advisor: ${advisor} · Expected Grad: ${gradDateFor(s.year_level)} · ${credits} credits</div>
           <div class="course-row-inst">${standingBadge}</div>
         </div>
-        <div class="person-row-side">${desig}<span title="Official (rolled to academic history)">${official ? '✓ Official' : ''}</span>${status}</div>
+        <div class="person-row-side">${desig}${status}</div>
       </div>`;
     }
 
@@ -2239,7 +2265,7 @@ async function renderCourseView(mc) {
         <div class="card-header">Class Roster <span style="font-weight:400;font-size:13px;color:#888;">${students.length} student${students.length !== 1 ? 's' : ''}</span></div>
         <div class="card-body">
           <div class="roster-head">
-            <div style="font-size:12px;color:#7a8494;">${anyEarly ? '<span class="grad-cap">&#127891;</span> = scheduled to graduate this year · <span class="early-chip">Early</span> = evaluation due earlier (graduating or on academic probation).' : ''}</div>
+            <div style="font-size:12px;color:#7a8494;">${anyEarly ? '<span class="grad-cap">' + icon('graduation-cap', 14) + '</span> = scheduled to graduate this year · <span class="early-chip">Early</span> = evaluation due earlier (graduating or on academic probation).' : ''}</div>
             ${rosterLayoutToggle()}
           </div>
           ${students.length
@@ -2273,7 +2299,7 @@ function renderContractRoster(mc) {
     // Advisor of record — should match the instructor, but may differ (data entry).
     const advisorName = s.contract_advisor_name || u.full_name;
     const advisorCell = s.contract_advisor_name
-      ? `<span style="color:#b93a2b;" title="Advisor of record differs from the instructor">${advisorName} ⚠</span>` : advisorName;
+      ? `<span style="color:#b93a2b;" title="Advisor of record differs from the instructor">${advisorName} <span class="advisor-warn">${icon('alert-triangle', 14)}</span></span>` : advisorName;
     const criteria = contract.contract_criteria || s.contract_criteria || '—';
     const allEvals = allEvalsSubmitted(s.id)
       ? '<span class="read-yes" title="All narrative evaluations rolled to academic history">All evals in</span>' : '<span style="color:#b8860b;font-size:12px;">Evals pending</span>';
@@ -2303,7 +2329,6 @@ function renderContractRoster(mc) {
       <div class="student-card-foot">
         ${desig}
         <span class="spacer"></span>
-        <span title="Certification pushed to Banner">${official ? '✓ Official' : ''}</span>
         ${status}
       </div>
     </div>`;
@@ -2325,7 +2350,7 @@ function renderContractRoster(mc) {
       <div class="card-body">
         <div style="font-size:12px;color:#7a8494;margin-bottom:12px;">
           <span class="read-yes">All evals in</span> = every course narrative rolled to academic history.
-          ${anyEarly ? '&nbsp;·&nbsp; <span class="grad-cap">&#127891;</span> = scheduled to graduate this year · <span class="early-chip">Early</span> = certification due earlier (graduating or on academic probation).' : ''}
+          ${anyEarly ? '&nbsp;·&nbsp; <span class="grad-cap">' + icon('graduation-cap', 14) + '</span> = scheduled to graduate this year · <span class="early-chip">Early</span> = certification due earlier (graduating or on academic probation).' : ''}
         </div>
         ${cards ? `<div class="roster-cards">${cards}</div>` : '<div style="text-align:center;color:#888;padding:20px;">No advisees.</div>'}
       </div>
@@ -3405,7 +3430,7 @@ async function renderAdviseesList(mc) {
       // Advisor of record — normally this advisor; a red ⚠ flags a mismatch.
       const advisorDiffers = !!s.contract_advisor_name;
       const advisorName = s.contract_advisor_name || u.full_name;
-      const advisorLine = `Advisor: ${advisorName}${advisorDiffers ? ' <span class="advisor-warn" title="Advisor of record differs from the instructor">⚠</span>' : ''}`;
+      const advisorLine = `Advisor: ${advisorName}${advisorDiffers ? ` <span class="advisor-warn" title="Advisor of record differs from the instructor">${icon('alert-triangle', 14)}</span>` : ''}`;
       const desig = contract.designation
         ? `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : contract.designation === 'unsat' ? 'desig-unsat' : 'desig-inc'}">${contractDesignationLabel(contract.designation)}</span>`
         : '<span style="color:#bbb;">—</span>';
@@ -3428,8 +3453,7 @@ async function renderAdviseesList(mc) {
         <div class="student-card-foot">
           ${desig}
           <span class="spacer"></span>
-          <span title="Certification pushed to Banner">${contract.banner_pushed ? '✓ Official' : ''}</span>
-          ${certBadge}
+                    ${certBadge}
         </div>
       </div>`;
       rows += `<div class="course-row course-row-click" ${isSenior ? 'style="box-shadow:inset 4px 0 0 var(--ncf-gold);"' : ''} onclick="navToAdvisee('${s.id}')">
@@ -3438,7 +3462,7 @@ async function renderAdviseesList(mc) {
           <div class="course-row-meta">${s.n_number}${studentHasISP(s.id) ? ' · has ISP' : ''} · ${advisorLine} · Expected Grad: ${gradDateFor(s.year_level)}</div>
           <div class="course-row-inst">${probation ? '<span class="probation">Academic Probation</span>' : 'Good Standing'} · Criteria: ${s.contract_criteria || '—'} · ${allEvals}</div>
         </div>
-        <div class="person-row-side">${desig}<span title="Certification pushed to Banner">${contract.banner_pushed ? '✓ Official' : ''}</span>${certBadge}</div>
+        <div class="person-row-side">${desig}${certBadge}</div>
       </div>`;
     });
     const seniors = advisees.filter(s => s.year_level === 'Fourth Year').length;
@@ -3448,7 +3472,7 @@ async function renderAdviseesList(mc) {
     mc.innerHTML = `
       <div class="card" style="margin-bottom:14px;">
         <div class="card-body">
-          <div style="font-weight:650;color:var(--ncf-navy);margin-bottom:8px;">Search</div>
+          <div style="font-weight:650;color:var(--ncf-navy);margin-bottom:8px;display:flex;align-items:center;gap:7px;">${icon('search', 16)} Search</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <select class="filter-select" id="advSearchMode" onchange="applyAdviseeSearch()">
               <option value="student"${search.mode === 'student' ? ' selected' : ''}>Student</option>
@@ -3468,7 +3492,7 @@ async function renderAdviseesList(mc) {
           <h3 style="color:var(--ncf-navy);margin-bottom:2px;">${u.full_name} — ${CURRENT_TERM} Advisees</h3>
           <div style="color:#666;font-size:13px;margin-bottom:8px;">${u.division || ''} · ${advisees.length} advisees · ${seniors} seniors · current term only</div>
           <div class="roster-head">
-            <div class="ses-note">Click a student to see their evaluations exactly as they see them.${anyEarly ? ' <span class="grad-cap">&#127891;</span> = graduating this year · <span class="early-chip">Early</span> = due earlier (graduating or probation).' : ''}</div>
+            <div class="ses-note">Click a student to see their evaluations exactly as they see them.${anyEarly ? ' <span class="grad-cap">' + icon('graduation-cap', 14) + '</span> = graduating this year · <span class="early-chip">Early</span> = due earlier (graduating or probation).' : ''}</div>
             ${rosterLayoutToggle()}
           </div>
           ${advisees.length
@@ -3562,8 +3586,7 @@ function renderContractView(mc) {
       </div>
       <div class="person-row-side">
         <span><b style="color:#7a8494;font-weight:600;font-size:12.5px;">Designation:</b> ${ev ? designationLabel(ev.designation) : '—'}</span>
-        <span title="Official (rolled to academic history)">${official ? '✓ Official' : ''}</span>
-        <span class="adv-caret">&#9656;</span>
+                <span class="adv-caret">&#9656;</span>
       </div>
     </div>`;
   };
