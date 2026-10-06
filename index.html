@@ -938,7 +938,7 @@ function buildDemoData() {
   }
   // Only two curated logins are exposed (Jules Ingram = fa5). Other roles still
   // exist as profiles (for lookups) but are hidden from the login dropdown.
-  if (facById['fa5']) facById['fa5'].login = true;
+  if (facById['fa5']) { facById['fa5'].login = true; facById['fa5'].can_search_faculty = true; }
   d.profiles.push({ id: 'r1', email: 'registrar@ncf.edu', full_name: 'Registrar Office', role: 'registrar', is_advisor: false, division: "Registrar's Office", login: false });
   d.profiles.push({ id: 'po', email: 'provost@ncf.edu', full_name: 'Provost Office', role: 'po_office', is_advisor: false, division: "Provost's Office", login: false });
   d.profiles.push({ id: 'ad', email: 'admin@ncf.edu', full_name: 'Admin User', role: 'admin', is_advisor: false, division: 'Academic Affairs', login: false });
@@ -1835,14 +1835,10 @@ async function renderSidebar() {
       if (!appState.facultyTerm || !terms.includes(appState.facultyTerm)) {
         appState.facultyTerm = terms.includes(CURRENT_TERM) ? CURRENT_TERM : (terms[0] || CURRENT_TERM);
       }
-      // The term selector only applies inside Narrative Evaluations; elsewhere
-      // (e.g. My Advisees) it is grayed out and inactive.
+      // The term selector now lives in the Narrative Evaluations Search container
+      // (not in the nav bar), for consistency with My Advisees.
       const neActive = (appState.view === 'faculty-classes' || appState.view === 'course' || appState.view === 'evaluation' || appState.view === 'contract-roster');
       html += tab('Narrative Evaluations', neActive, 'navToFacultyTerm(appState.facultyTerm)', 'file-text');
-      if (terms.length > 1) {
-        const opts = terms.map(t => `<option value="${t}"${t === appState.facultyTerm ? ' selected' : ''}>${t}</option>`).join('');
-        html += `<div class="navbar-term"><select class="filter-select" onchange="navToFacultyTerm(this.value)"${neActive ? '' : ' disabled title="Term applies within Narrative Evaluations only" style="opacity:.5;cursor:not-allowed;"'}>${opts}</select></div>`;
-      }
     } catch(e) { /* no courses */ }
     if (u.is_advisor) {
       const adviseesActive = (appState.view === 'advisees-list' || appState.view === 'advisee-view' || appState.view === 'advisor-student');
@@ -2071,26 +2067,27 @@ async function renderFacultyClasses(mc) {
     const advisees = USE_DEMO ? demoData.students.filter(s => s.advisor_id === u.id) : [];
     const contractCard = advisees.length ? facultyContractCard(term, u, advisees) : '';
     const cards = contractCard + courses.map(facultyClassCard).join('');
-    // Search by term + instructor — prototype placeholder (behavior defined in the
-    // specifications document; not wired up).
+    // Search container: the Term dropdown (all faculty) drives the class list;
+    // the Instructor dropdown appears only for faculty who may search other
+    // faculty's classes (prototype — instructor search behavior lives in the spec).
     const termOpts = [...new Set(demoData.courses.map(c => `${c.semester} ${c.year}`))].filter(t => t.split(' ')[0] !== 'January').sort(semesterSortDesc);
+    const canSearchFaculty = u.role === 'admin' || !!u.can_search_faculty;
     const instrOpts = [...new Set(demoData.profiles.filter(p => p.role === 'faculty').map(p => p.full_name))].sort((a, b) => lastNameFirst(a).localeCompare(lastNameFirst(b)));
+    const instrSelect = canSearchFaculty ? `
+            <select class="filter-select" id="neSearchInstr">
+              <option value="">Instructor…</option>
+              ${instrOpts.map(n => `<option value="${n}">${lastNameFirst(n)}</option>`).join('')}
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="showToast('Instructor search will be defined in the specifications document.', '#6c757d')">Search</button>` : '';
     mc.innerHTML = `
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
           <div style="font-weight:650;color:var(--ncf-navy);margin-bottom:8px;display:flex;align-items:center;gap:7px;">${icon('search', 16)} Search</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <select class="filter-select" id="neSearchTerm">
-              <option value="">Term…</option>
+            <select class="filter-select" id="neSearchTerm" onchange="navToFacultyTerm(this.value)">
               ${termOpts.map(t => `<option value="${t}"${t === term ? ' selected' : ''}>${t}</option>`).join('')}
-            </select>
-            <select class="filter-select" id="neSearchInstr">
-              <option value="">Instructor…</option>
-              ${instrOpts.map(n => `<option value="${n}">${lastNameFirst(n)}</option>`).join('')}
-            </select>
-            <button class="btn btn-primary btn-sm" onclick="showToast('Search will be defined in the specifications document.', '#6c757d')">Search</button>
+            </select>${instrSelect}
           </div>
-          <div style="font-size:11.5px;color:#888;margin-top:6px;">Requires a term and an instructor. (Prototype placeholder — behavior defined in the specifications document.)</div>
         </div>
       </div>
       <div class="card" style="margin-bottom:16px;">
@@ -3595,7 +3592,10 @@ function renderContractView(mc) {
 
   const certified = contract.certified;
   mc.innerHTML = `
-    <div style="font-family:var(--sans);font-size:20px;color:var(--ncf-navy);font-weight:600;">${lastNameFirst(student.full_name)} <span style="font-size:14px;color:#888;font-family:var(--sans);">(${student.n_number})</span></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="font-family:var(--sans);font-size:20px;color:var(--ncf-navy);font-weight:600;">${lastNameFirst(student.full_name)} <span style="font-size:14px;color:#888;font-family:var(--sans);">(${student.n_number})</span></div>
+      ${certified ? '<span class="status-badge status-submitted">Submitted</span>' : ''}
+    </div>
     <div style="color:#666;font-size:13px;margin-top:2px;">${term}</div>
     <div class="cc-meta">
       <span class="cc-meta-item"><b>Enrollment Status:</b> ${contract.enrollment_status || 'Enrolled'}</span>
@@ -3629,13 +3629,12 @@ function renderContractView(mc) {
         <div class="rte-label private-label">Narrative Evaluation for Advising</div>
         <div class="rte-wrapper${certified ? ' readonly' : ''}" style="margin-top:6px;"><div id="contractEditorContainer"></div></div>
 
-        ${certified ? '<div style="font-size:12.5px;color:#1e7e34;margin-top:14px;">This certification is <strong>official</strong> (certified &amp; pushed to Banner) and can no longer be edited.</div>' : ''}
         <div class="btn-group" style="margin-top:16px;">
           ${certified
-            ? `<button class="btn btn-primary" disabled title="This certification is official and can no longer be updated" style="opacity:.5;cursor:not-allowed;">Save</button>
-               <button class="btn btn-outline" onclick="printContractCertification('${student.id}','${term}')">Print / PDF</button>`
-            : `<button class="btn btn-primary" onclick="saveContractNarrative('${student.id}')">Save</button>
-               <button class="btn btn-success" onclick="certifyContract('${student.id}')">Certify &amp; push to Banner</button>`}
+            ? '<button class="btn btn-primary" disabled title="This certification is official and can no longer be updated" style="opacity:.5;cursor:not-allowed;">Save</button>'
+            : `<button class="btn btn-primary" onclick="saveContractNarrative('${student.id}')">Save</button>`}
+          <button class="btn btn-outline" onclick="printContractCertification('${student.id}','${term}')">Print / PDF</button>
+          <button class="btn btn-outline" onclick="showToast('Print Narratives for Transcript — produces the official-transcript narrative packet for the Registrar. Behavior defined in the specifications document.', 'var(--ncf-navy)')">Print Narratives for Transcript</button>
         </div>
       </div>
     </div>`;
