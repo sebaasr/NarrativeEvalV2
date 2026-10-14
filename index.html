@@ -2091,9 +2091,12 @@ async function renderFacultyClasses(mc) {
         </div>
       </div>
       <div class="card" style="margin-bottom:16px;">
-        <div class="card-body">
-          <h3 style="margin-bottom:4px;">${term} · Classes</h3>
-          <div style="color:#666;font-size:14px;">${u.full_name} · ${courses.length} class${courses.length !== 1 ? 'es' : ''}${advisees.length ? ` · ${advisees.length} advisees` : ''}</div>
+        <div class="card-body" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h3 style="margin-bottom:4px;">${term} · Classes</h3>
+            <div style="color:#666;font-size:14px;">${u.full_name}</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="showToast('Print Narratives for Transcript — produces the official-transcript narrative packet for the Registrar. Behavior defined in the specifications document.', 'var(--ncf-navy)')">Print Narratives for Transcript</button>
         </div>
       </div>
       <div class="course-list class-indent">${cards || '<div class="card"><div class="card-body" style="text-align:center;color:#888;padding:30px;">No classes for this term.</div></div>'}</div>`;
@@ -2196,6 +2199,9 @@ async function renderCourseView(mc) {
       const status = !ev ? '<span class="status-badge status-not-started">Not Started</span>'
         : (ev.status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>' : '<span class="status-badge status-draft">Draft</span>');
       const official = !!(ev && ev.status === 'submitted');
+      // A blue dot flags a submitted evaluation the student has not yet read.
+      const unreadDot = (ev && ev.status === 'submitted' && !ev.read_by_student)
+        ? ' <span class="unread-dot" title="The student has not read this evaluation"></span>' : '';
       let desig = ev ? getDesignationPill(ev.designation) : '<span style="color:#bbb;">—</span>';
       if (ev && ev.designation === 'inc' && ev.completion_deadline) desig += `<div class="row-deadline" style="margin-top:2px;">Deadline: ${fmtAttend(ev.completion_deadline)}</div>`;
       const standing = studentStanding(s.id);
@@ -2210,7 +2216,7 @@ async function renderCourseView(mc) {
       if (grad || probation) anyEarly = true;
       cards += `<div class="student-card${grad ? ' is-grad' : ''}" onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
         <div>
-          <div class="student-card-head"><span class="student-card-name">${lastNameFirst(s.full_name)}</span>${studentIcons(grad, probation)}</div>
+          <div class="student-card-head"><span class="student-card-name">${lastNameFirst(s.full_name)}</span>${studentIcons(grad, probation)}${unreadDot}</div>
           <div class="student-card-sub">${s.n_number}${preferred ? ` · “${preferred}”` : ''}</div>
         </div>
         <div class="student-card-meta">
@@ -2227,7 +2233,7 @@ async function renderCourseView(mc) {
       </div>`;
       rows += `<div class="course-row course-row-click" ${grad ? 'style="box-shadow:inset 4px 0 0 var(--ncf-gold);"' : ''} onclick="openEvaluationSlide('${s.id}','${appState.selectedCourseId}')">
         <div class="course-row-main">
-          <div class="course-row-title">${lastNameFirst(s.full_name)}${studentIcons(grad, probation)}</div>
+          <div class="course-row-title">${lastNameFirst(s.full_name)}${studentIcons(grad, probation)}${unreadDot}</div>
           <div class="course-row-meta">${s.n_number}${preferred ? ` · “${preferred}”` : ''} · Advisor: ${advisor} · Expected Grad: ${gradDateFor(s.year_level)} · ${credits} credits</div>
           <div class="course-row-inst">${standingBadge}</div>
         </div>
@@ -2286,42 +2292,34 @@ function renderContractRoster(mc) {
     .slice().sort(byLastName);   // last name, then first
   let anyEarly = false;
 
-  const cards = advisees.map(s => {
+  let cards = '', rows = '';
+  advisees.forEach(s => {
     const contract = getContract(s.id, term);
     const standing = studentStanding(s.id);
     const probation = standing === 'Academic Probation';
     const grad = s.year_level === 'Fourth Year';
     if (grad || probation) anyEarly = true;
-    const preferred = (s.preferred_name && s.preferred_name !== s.full_name.split(' ')[0]) ? s.preferred_name : '';
-    // Advisor of record — should match the instructor, but may differ (data entry).
-    const advisorName = s.contract_advisor_name || u.full_name;
-    const advisorCell = s.contract_advisor_name
-      ? `<span style="color:#b93a2b;" title="Advisor of record differs from the instructor">${advisorName} <span class="advisor-warn">${icon('alert-triangle', 14)}</span></span>` : advisorName;
+    // Advisor of record — normally this advisor; a red ⚠ flags a mismatch, and
+    // the advisor line only appears when it differs (keeps the card uncluttered).
+    const advisorLine = s.contract_advisor_name
+      ? ` · <span style="color:#b93a2b;" title="Advisor of record differs from the instructor">Advisor: ${s.contract_advisor_name} <span class="advisor-warn">${icon('alert-triangle', 14)}</span></span>` : '';
     const criteria = contract.contract_criteria || s.contract_criteria || '—';
-    const allEvals = allEvalsSubmitted(s.id)
-      ? '<span class="read-yes" title="All narrative evaluations rolled to academic history">All evals in</span>' : '<span style="color:#b8860b;font-size:12px;">Evals pending</span>';
-    const official = !!(contract.certified || contract.banner_pushed);
+    // A blue dot flags a certified contract the student has not yet read.
+    const unreadDot = (contract.certified && !contract.read_by_student)
+      ? ' <span class="unread-dot" title="The student has not read this certification"></span>' : '';
     const desig = contract.designation
       ? `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : contract.designation === 'unsat' ? 'desig-unsat' : 'desig-inc'}">${contractDesignationLabel(contract.designation)}</span>`
       : '<span style="color:#bbb;">—</span>';
     const status = contract.certified
       ? '<span class="status-badge status-submitted">Certified</span>'
       : '<span class="status-badge status-not-started">Not Certified</span>';
-    const credits = demoData.evaluations.filter(e => e.student_id === s.id && e.status === 'submitted').length * 3;
-    return `<div class="student-card${grad ? ' is-grad' : ''}" onclick="navToContract('${s.id}',{term:'${term}',from:'contract-roster'})">
+    cards += `<div class="student-card${grad ? ' is-grad' : ''}" onclick="navToContract('${s.id}',{term:'${term}',from:'contract-roster'})">
       <div>
-        <div class="student-card-head"><span class="student-card-name">${lastNameFirst(s.full_name)}</span>${studentIcons(grad, probation)}</div>
-        <div class="student-card-sub">${s.n_number}${preferred ? ` · “${preferred}”` : ''} · Advisor: ${advisorCell}</div>
-      </div>
-      <div class="student-card-meta">
-        <span><b>Expected Grad:</b> ${gradDateFor(s.year_level)}</span>
-        <span><b>Credits:</b> ${credits}</span>
-        <span><b>Contracts:</b> ${s.contracts_completed ?? '—'}</span>
+        <div class="student-card-head"><span class="student-card-name">${lastNameFirst(s.full_name)}</span>${studentIcons(grad, probation)}${unreadDot}</div>
+        <div class="student-card-sub">${s.n_number} · Expected Grad: ${gradDateFor(s.year_level)}</div>
       </div>
       <div class="student-card-meta">
         <span><b>Criteria:</b> ${criteria}</span>
-        <span>${probation ? '<span class="probation">Academic Probation</span>' : '<span style="color:#1e7e34;">Good Standing</span>'}</span>
-        <span>${allEvals}</span>
       </div>
       <div class="student-card-foot">
         ${desig}
@@ -2329,7 +2327,14 @@ function renderContractRoster(mc) {
         ${status}
       </div>
     </div>`;
-  }).join('');
+    rows += `<div class="course-row course-row-click" ${grad ? 'style="box-shadow:inset 4px 0 0 var(--ncf-gold);"' : ''} onclick="navToContract('${s.id}',{term:'${term}',from:'contract-roster'})">
+      <div class="course-row-main">
+        <div class="course-row-title">${lastNameFirst(s.full_name)}${studentIcons(grad, probation)}${unreadDot}</div>
+        <div class="course-row-meta">${s.n_number} · Expected Grad: ${gradDateFor(s.year_level)} · Criteria: ${criteria}${advisorLine}</div>
+      </div>
+      <div class="person-row-side">${desig}${status}</div>
+    </div>`;
+  });
 
   mc.innerHTML = `
     <div style="margin-bottom:12px;">
@@ -2345,11 +2350,15 @@ function renderContractRoster(mc) {
     <div class="card">
       <div class="card-header">Contract Advisees <span style="font-weight:400;font-size:13px;color:#888;">${advisees.length} advisee${advisees.length !== 1 ? 's' : ''}</span></div>
       <div class="card-body">
-        <div style="font-size:12px;color:#7a8494;margin-bottom:12px;">
-          <span class="read-yes">All evals in</span> = every course narrative rolled to academic history.
-          ${anyEarly ? '&nbsp;·&nbsp; <span class="grad-cap">' + icon('graduation-cap', 14) + '</span> = scheduled to graduate this year · <span class="early-chip">Early</span> = certification due earlier (graduating or on academic probation).' : ''}
+        <div class="roster-head">
+          <div style="font-size:12px;color:#7a8494;">${anyEarly ? '<span class="grad-cap">' + icon('graduation-cap', 14) + '</span> = graduating this year · <span class="early-chip">Early</span> = due earlier (graduating or probation) · <span class="unread-dot"></span> = student hasn’t read the certification.' : '<span class="unread-dot"></span> = student hasn’t read the certification.'}</div>
+          ${rosterLayoutToggle()}
         </div>
-        ${cards ? `<div class="roster-cards">${cards}</div>` : '<div style="text-align:center;color:#888;padding:20px;">No advisees.</div>'}
+        ${advisees.length
+          ? (appState.rosterLayout === 'list'
+              ? `<div class="course-list">${rows}</div>`
+              : `<div class="roster-cards">${cards}</div>`)
+          : '<div style="text-align:center;color:#888;padding:20px;">No advisees.</div>'}
       </div>
     </div>`;
 }
@@ -3037,7 +3046,7 @@ async function renderStudentView(mc) {
       <div class="card" style="margin-bottom:16px;">
         <div class="card-body">
           <h3 style="margin-bottom:4px;">My Narrative Evaluations</h3>
-          <div style="color:#666;font-size:14px;">${u.full_name} · ${u.n_number || ''}${(() => { const st = demoData.students.find(s => s.id === u.student_id); return st ? ` · Expected Graduation: ${gradDateFor(st.year_level)}` : ''; })()}</div>
+          <div style="color:#666;font-size:14px;">${u.full_name}${(() => { const n = u.n_number || demoData.students.find(s => s.id === u.student_id)?.n_number; return n ? ` (${n})` : ''; })()}</div>
         </div>
       </div>
       <div id="studentGroups"></div>`;
@@ -3195,8 +3204,12 @@ async function openStudentNarrative(courseId) {
   const privateNarr = await Data.getPrivateNote(ev.id);
   const faculty = demoData.profiles.find(p => p.id === (ev.faculty_id || course.faculty_id));
   Data.logAccess('view_evaluation', 'evaluation', ev.id, u.student_id);
-  markNarrativeRead(ev.id);
-  ev.read_by_student = true;   // reflected in the faculty roster's Read column
+  // Only the STUDENT viewing clears the unread flag — a faculty/advisor preview
+  // must leave the blue "unread" dot in place (it tracks the student's own reading).
+  if (!appState.viewAsStudentId) {
+    markNarrativeRead(ev.id);
+    ev.read_by_student = true;   // reflected in the faculty roster's unread dot
+  }
   const incRow = (ev.designation === 'unsat' && ev.last_attend_date)
     ? `<div style="margin-top:6px;font-size:13px;color:#b8860b;"><strong>Last Date of Attendance:</strong> ${fmtAttend(ev.last_attend_date)}</div>`
     : (ev.designation === 'inc' && ev.completion_deadline)
@@ -3220,7 +3233,11 @@ function openStudentContract(term = CURRENT_TERM) {
   const contract = getContract(u.student_id, term);
   const advisor = demoData.profiles.find(p => p.id === demoData.students.find(s => s.id === u.student_id)?.advisor_id);
   if (!contract.certified) return;
-  markNarrativeRead('contract:' + u.student_id + ':' + term);
+  // Only the student viewing clears the unread flag; a faculty preview leaves it.
+  if (!appState.viewAsStudentId) {
+    markNarrativeRead('contract:' + u.student_id + ':' + term);
+    contract.read_by_student = true;
+  }
   const desig = contractDesignationLabel(contract.designation);
   const hasNarr = contract.internal_narrative && stripHtml(contract.internal_narrative).length;
   openSidePanel(`Contract Certification — ${term}`, `
@@ -3424,10 +3441,6 @@ async function renderAdviseesList(mc) {
       const contract = getContract(s.id);
       const standing = studentStanding(s.id);
       const probation = standing === 'Academic Probation';
-      // Advisor of record — normally this advisor; a red ⚠ flags a mismatch.
-      const advisorDiffers = !!s.contract_advisor_name;
-      const advisorName = s.contract_advisor_name || u.full_name;
-      const advisorLine = `Advisor: ${advisorName}${advisorDiffers ? ` <span class="advisor-warn" title="Advisor of record differs from the instructor">${icon('alert-triangle', 14)}</span>` : ''}`;
       const desig = contract.designation
         ? `<span class="desig-badge ${contract.designation === 'sat' ? 'desig-sat' : contract.designation === 'unsat' ? 'desig-unsat' : 'desig-inc'}">${contractDesignationLabel(contract.designation)}</span>`
         : '<span style="color:#bbb;">—</span>';
@@ -3437,7 +3450,7 @@ async function renderAdviseesList(mc) {
       cards += `<div class="student-card${isSenior ? ' is-grad' : ''}" onclick="navToAdvisee('${s.id}')">
         <div>
           <div class="student-card-head"><span class="student-card-name">${lastNameFirst(s.full_name)}</span>${studentIcons(isSenior, probation)}</div>
-          <div class="student-card-sub">${s.n_number}${studentHasISP(s.id) ? ' · has ISP' : ''} · ${advisorLine}</div>
+          <div class="student-card-sub">${s.n_number}${studentHasISP(s.id) ? ' · has ISP' : ''}</div>
         </div>
         <div class="student-card-meta">
           <span><b>Expected Grad:</b> ${gradDateFor(s.year_level)}</span>
@@ -3456,7 +3469,7 @@ async function renderAdviseesList(mc) {
       rows += `<div class="course-row course-row-click" ${isSenior ? 'style="box-shadow:inset 4px 0 0 var(--ncf-gold);"' : ''} onclick="navToAdvisee('${s.id}')">
         <div class="course-row-main">
           <div class="course-row-title">${lastNameFirst(s.full_name)}${studentIcons(isSenior, probation)}</div>
-          <div class="course-row-meta">${s.n_number}${studentHasISP(s.id) ? ' · has ISP' : ''} · ${advisorLine} · Expected Grad: ${gradDateFor(s.year_level)}</div>
+          <div class="course-row-meta">${s.n_number}${studentHasISP(s.id) ? ' · has ISP' : ''} · Expected Grad: ${gradDateFor(s.year_level)}</div>
           <div class="course-row-inst">${probation ? '<span class="probation">Academic Probation</span>' : 'Good Standing'} · Criteria: ${s.contract_criteria || '—'} · ${allEvals}</div>
         </div>
         <div class="person-row-side">${desig}${certBadge}</div>
@@ -3634,7 +3647,6 @@ function renderContractView(mc) {
             ? '<button class="btn btn-primary" disabled title="This certification is official and can no longer be updated" style="opacity:.5;cursor:not-allowed;">Save</button>'
             : `<button class="btn btn-primary" onclick="saveContractNarrative('${student.id}')">Save</button>`}
           <button class="btn btn-outline" onclick="printContractCertification('${student.id}','${term}')">Print / PDF</button>
-          <button class="btn btn-outline" onclick="showToast('Print Narratives for Transcript — produces the official-transcript narrative packet for the Registrar. Behavior defined in the specifications document.', 'var(--ncf-navy)')">Print Narratives for Transcript</button>
         </div>
       </div>
     </div>`;
